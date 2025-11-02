@@ -1,0 +1,166 @@
+---
+title: "TP3 - Exercice 1"
+author: "EXPUESTO Ewen, AUBERTIN Candice"
+date: "20 octobre 2025"
+output: 
+    pdf_document:
+        toc: false
+        number_sections: true
+---
+
+# Introduction
+
+```{r}
+rm(list = ls())
+graphics.off()
+```
+
+```{r}
+saheart <- read.table("SAheart.txt", header = TRUE, sep = ",")
+```
+
+On enlève la colonne famhist, ou alors on pourrait la convertir en variable numérique.
+```{r}
+saheart_num <- saheart[, sapply(saheart, is.numeric)]
+pairs(saheart_num[], pch = 22, bg = c("red", "blue")[unclass(factor(saheart[, "chd"]))])
+```
+
+# Modèle de régression logistique
+
+## a)
+
+La fonction `glm()` est utilisée pour estimer les paramètres d'un modèle linéaire généralisé.
+
+```{r}
+?glm
+```
+
+**Explication de l'option `family = binomial`:**
+
+L'option `family = binomial` indique que nous souhaitons ajuster un modèle de régression logistique. Cette option spécifie :
+
+- La distribution de la variable réponse (distribution binomiale pour une variable binaire 0/1)
+- La fonction de lien (logit par défaut pour binomial), qui relie la moyenne de la variable réponse aux prédicteurs linéaires
+
+Pour une régression logistique, le modèle est : $\log\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 X_1 + ... + \beta_p X_p$
+
+où $p$ est la probabilité que la variable réponse soit égale à 1 (présence de maladie coronarienne).
+
+```{r}
+res <- glm(chd ~ ., data = saheart, family = binomial)
+```
+
+```{r}
+summary(res)
+```
+
+## b)
+
+Affiche le contenu de l'objet res :
+```{r}
+attributes(res)
+```
+
+Affiche leur nom :
+```{r}
+names(res)
+```
+
+**Analyse des coefficients estimés:**
+
+Coefficients estimés :
+```{r}
+res$coefficients
+```
+
+```{r}
+coef_summary <- summary(res)$coefficients
+coef_summary
+```
+
+**Coefficients les plus significatifs:**
+
+Les coefficients les plus significatifs sont ceux avec les p-values les plus faibles (< 0.05). On peut les identifier en regardant la dernière colonne du tableau ci-dessus.
+
+```{r}
+significant_coef <- coef_summary[coef_summary[, 4] < 0.05, ]
+significant_coef
+```
+
+**Coefficients les moins significatifs:**
+
+```{r}
+non_significant_coef <- coef_summary[coef_summary[, 4] >= 0.05, ]
+non_significant_coef
+```
+
+**Prédictions avec predict():**
+
+Prédictions avec type = "link" (échelle logit) :
+```{r}
+pred_link <- predict(res, type = "link")
+head(pred_link)
+```
+
+Prédictions avec type = "response" (probabilités) :
+```{r}
+pred_response <- predict(res, type = "response")
+head(pred_response)
+```
+
+**Différence entre type = "link" et type = "response":**
+
+- `type = "link"` : retourne les valeurs prédites sur l'échelle du lien logit, c'est-à-dire $\hat{\beta}^T x_i = \log\left(\frac{\hat{p}_i}{1-\hat{p}_i}\right)$
+- `type = "response"` : retourne les probabilités prédites, c'est-à-dire $\hat{p}_i = \frac{1}{1 + e^{-\hat{\beta}^T x_i}}$
+
+Vérification de la relation entre les deux :
+```{r}
+head(exp(pred_link) / (1 + exp(pred_link)))
+head(pred_response)
+```
+
+## c) Odds-ratios
+
+L'**odds-ratio** pour une variable $X_j$ est calculé comme $OR_j = e^{\beta_j}$. Il représente le facteur multiplicatif du rapport des cotes (odds) lorsque $X_j$ augmente d'une unité, toutes les autres variables restant constantes.
+
+Calcul des odds-ratios :
+```{r}
+odds_ratios <- exp(res$coefficients)
+odds_ratios
+```
+
+Intervalles de confiance à 95% pour les odds-ratios :
+```{r}
+odds_ratios_ci <- exp(confint(res))
+odds_ratios_ci
+```
+
+Tableau complet avec odds-ratios et IC :
+```{r}
+odds_table <- data.frame(
+  Coefficient = res$coefficients,
+  OddsRatio = odds_ratios,
+  CI_lower = odds_ratios_ci[, 1],
+  CI_upper = odds_ratios_ci[, 2]
+)
+odds_table
+```
+
+**Interprétation de l'odds-ratio pour "tobacco":**
+
+Odds-ratio pour tobacco :
+```{r}
+OR_tobacco <- odds_ratios["tobacco"]
+OR_tobacco
+```
+
+**Commentaire:** Un odds-ratio de `r round(OR_tobacco, 3)` pour la variable "tobacco" signifie que pour chaque kilogramme supplémentaire de tabac consommé (cumulative), le rapport des cotes de développer une maladie coronarienne est multiplié par `r round(OR_tobacco, 3)`, toutes les autres variables restant constantes.
+
+**Limites de cette approche:**
+
+1. Les odds-ratios peuvent être difficiles à interpréter intuitivement
+2. L'interprétation suppose que toutes les autres variables restent constantes (ceteris paribus)
+3. Pour les variables continues, l'effet d'une augmentation d'une unité peut ne pas être cliniquement pertinent
+4. Les odds-ratios ne sont pas des risques relatifs (bien qu'ils s'en rapprochent pour les événements rares)
+5. L'interprétation assume une relation linéaire entre le prédicteur et le log-odds
+

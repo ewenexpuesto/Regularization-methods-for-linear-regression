@@ -1,0 +1,129 @@
+---
+title: "TP1 MRR"
+author: "Candice Aubertin - Ewen Expuesto"
+date: "29 Septembre 2025"
+output:
+  pdf_document:
+    fig_caption: true
+    toc: true
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+# TP1 MRR - Candice Aubertin et Ewen Expuesto
+
+## Exercice 4
+
+```{r}
+rm(list=ls())
+graphics.off()
+```
+
+```{r}
+tab <- read.table("~/MRR21/Files/TP1/Donnees_amazon.txt", header=TRUE, sep=";")
+tab
+```
+
+```{r}
+modreg=lm(Adj_Close ~ Date ,tab)
+summary(modreg)
+```
+
+```{r}
+plot(tab$Adj_Close,modreg$fit,xlab="Valeurs observées",ylab="Valeurs prédites",pch=4)
+abline(0,1,col="red")
+```
+
+```{r}
+plot(tab$Date,tab$Adj_Close,xlab="Années",ylab="Valeurs",pch=4)
+abline(modreg,col="red")
+```
+
+```{r}
+tab$Log_Adj_Close<-log(tab$Adj_Close)
+plot(tab$Date,tab$Log_Adj_Close,xlab="Années",ylab="ln(Adj_Close)",pch=4)
+abline(0,1,col="red")
+```
+
+```{r}
+logmodreg=lm(Log_Adj_Close~ Date,tab)
+summary(logmodreg)
+```
+
+```{r}
+plot(tab$Log_Adj_Close,logmodreg$fit,xlab="Log des valeurs observées",ylab="Log des valeurs prédites",pch=4)
+abline(0,1,col="red")
+```
+
+```{r}
+plot(tab$Date,logmodreg$res,xlab="Années",ylab="Résidus",pch=4)
+abline(h=0, col="red")
+```
+
+## Exercice 5
+
+The goal is to explain Mexico daily total electricity generation using variables in `Mexico_data.csv`.
+
+```{r}
+data <- read.csv("Mexico_data.csv")
+summary(data)
+```
+
+### Variable descriptions
+
+- X0: day of the year
+- RH: Relative humidity (%)
+- SSRD: Surface solar radiation downward (J.m-2)
+- STRD: Surface thermal radiation downward (J.m-2)
+- T2M: average daily temperature at 2m (°C)
+- T2Mmax: maximum daily temperature at 2m (°C)
+- T2Mmin: minimum daily temperature at 2m (°C)
+- Covid: COVID-19 stringency index
+- Holidays: holidays or public holidays, 1 = holidays, 0 otherwise
+- DOW: Day of Week, 0 for Monday, 1 for Tuesday, ...
+- TOY: Day of the year (from 1 to 366)
+- Total: Electricity generated daily in the territory (GWh)
+
+Let us build a linear model with multiple predictors $\mathrm{Total} = \theta_0 + \theta_1 \mathrm{RH} + \theta_2 \mathrm{SSRD} + \theta_3 \mathrm{STRD} + \theta_4 \mathrm{T2M} + \theta_5 \mathrm{T2Mmax} + \theta_6 \mathrm{T2Mmin} + \theta_7 \mathrm{Covid} + \theta_8 \mathrm{Holidays} + \theta_9 \mathrm{DOW} + \theta_{10} \mathrm{TOY} + \varepsilon$
+
+```{r}
+# Identify target y column
+target_col <- "Total"
+
+# Identify x column (date)
+first_col <- names(data)[1]
+
+# Exclude target and first column from predictors
+predictors <- setdiff(names(data), c(target_col, first_col))
+
+# Build formula
+form <- as.formula(paste(target_col, "~", paste(predictors, collapse = " + ")))
+```
+
+```{r}
+# Fit linear model
+model <- lm(form, data = data, na.action = na.omit)
+summary(model)
+
+# Extract model values
+obs <- model$y
+fit <- fitted(model)
+res <- residuals(model)
+```
+
+```{r}
+# "Convert" date to an index otherwise R will not plot it correctly and output an error
+x_index <- seq_len(nrow(data))
+```
+
+```{r}
+# Original vs Fitted
+plot(x_index, data[[target_col]], xlab = "n° of day", ylab = "total energy production of Mexico", main = "original vs fitted model data")
+lines(x_index, fit, col = "red")
+```
+
+```{r}
+# Residuals vs Fitted
+plot(fit, res, xlab = "fitted total energy consumption of Mexico", ylab = "residuals", main = "residuals")
+```

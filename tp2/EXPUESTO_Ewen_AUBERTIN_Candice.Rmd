@@ -1,0 +1,192 @@
+---
+title: "TP2 - Régression RIDGE LASSO"
+author: "EXPUESTO Ewen, AUBERTIN Candice"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Le but est d'expliquer la production totale quotidienne d'électricité au Mexique à l'aide des variables contenues dans `Mexico_data.csv`.
+
+## Description des données
+- **X0** : jour de l'année
+- **RH** : humidité relative (%)
+- **SSRD** : rayonnement solaire incident à la surface (J.m$^{-2}$)
+- **STRD** : rayonnement thermique incident à la surface (J.m$^{-2}$)
+- **T2M** : température moyenne quotidienne à 2m (°C)
+- **T2Mmax** : température maximale quotidienne à 2m (°C)
+- **T2Mmin** : température minimale quotidienne à 2m (°C)
+- **Covid** : indice de rigueur COVID-19
+- **Holidays** : jours fériés, 1 = jour férié, 0 sinon
+- **DOW** : jour de la semaine, 0 = lundi, 1 = mardi, ...
+- **TOY** : jour de l'année (1 à 366)
+- **Total** : production quotidienne d'électricité (GWh)
+
+## Chargement des données
+
+Installation du package glmnet si nécessaire :
+```R
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+install.packages("glmnet")
+```
+
+Dans le code suivant, on importe les données. Eventuellement remplacer par le chemin d'accès correct.
+```{r}
+library(glmnet)
+tab <- read.csv(file = "Mexico_data.csv", header = TRUE, sep = ",")
+```
+
+## Méthode 1 : régression RIDGE
+
+L'objectif est d'analyser les relations entre la variable cible Total et un ensemble de prédicteurs présents dans le tableau de données `Mexico_data.csv`. Nous allons donc construire un modèle de régression capable de prédire notre variable cible `Total` tout en limitant les problèmes dus à la présence d'un grand nombre de variables.
+
+Cette méthode nous permet de pénaliser les grandes valeurs des coefficients, afin de stabiliser l'estimation des paramètres et d'améliorer la généralisation du modèle.
+
+$$\Phi(\beta) = \|Y - X\beta\|_2^2 + k \|\beta\|_2^2 \qquad \text{($k \in \mathbb{R}_+^*$)}$$
+
+c'est à dire
+
+$$
+\Phi(\beta) = (Y - X\beta)^T (Y - X\beta) + k \sum_{j=1}^p \beta_j^2
+\qquad \text{($k \in \mathbb{R}_+^*$)}
+$$
+
+Lecture des données et standardisation en enlevant la colonne Total et X0 des prédicteurs :
+```{r}
+library(MASS)
+Y <- as.numeric(tab$Total)
+X <- as.matrix(tab[, 2:11])
+Xs <- scale(X)
+tabr <- data.frame(lpsa = Y, Xs)
+```
+
+Recherche de la valeur optimale de $\lambda$ par validation croisée en utilisant `lm.ridge` :
+```{r}
+lambda_seq <- seq(0, 100, by = 1)
+resridge <- lm.ridge(lpsa ~ ., data = tabr, lambda = lambda_seq)
+
+lambda_opt <- lambda_seq[which.min(resridge$GCV)]
+print(paste("Lambda optimal:", lambda_opt))
+```
+
+On ajuste donc le modèle avec le $\lambda$ obtenu:
+```{r}
+ridge_model <- lm.ridge(lpsa ~ ., data = tabr, lambda = lambda_opt)
+print(coef(ridge_model))
+```
+
+On `plot` la validation croisée pour la régression RIDGE:
+```{r}
+plot(lambda_seq, resridge$GCV, xlab = "Lambda", ylab = "Validation croisée")
+abline(v = lambda_opt, col = "blue")
+```
+
+La ligne bleue représente le $\lambda$ qui optimise le modèle. Ce graphique permet d'illustrer l'impact de la régularisation ($\lambda$) sur la qualité du modèle.
+
+```{r}
+matplot(lambda_seq, coef(resridge)[, -1], type = "l", xlab = "Lambda", ylab = "Coefficients")
+abline(v = lambda_opt, col = "blue")
+```
+
+Après avoir identifié la valeur optimale du paramètre de régularisation $\lambda$, on extrait les coefficients associés du modèle. On peut ensuite déterminer quelles variables jouent le rôle le plus significatif dans la prédiction
+
+```{r}
+coeffs_ridge <- coef(ridge_model)
+print(coeffs_ridge)
+
+vr <- order(abs(coeffs_ridge), decreasing = TRUE)
+head(vr)
+```
+
+Le code suivant permet d'afficher les noms des variables les plus importantes :
+```{r}
+names(coeffs_ridge)[vr[1:6]]
+```
+
+On en conclut que les variables les plus importantes pour la régression RIDGE sont le rayonnement thermique incident, le rayonnement solaire incident, le jour de la semaine, la température minimale quotidienne et les jours fériés.
+
+## Méthode 2 : Régression LASSO
+
+La régression LASSO (Least Absolute Shrinkage and Selection Operator) est une méthode de régularisation similaire à RIDGE, mais qui utilise une pénalité en norme 1 au lieu de 2. Cette approche permet non seulement de régulariser le modèle, mais aussi de sélectionner automatiquement les variables en forçant certains coefficients à devenir exactement nuls.
+
+$$
+\Phi(\beta) = \|Y - X\beta\|_2^2 + k \|\beta\|_1 
+\qquad \text{($k \in \mathbb{R}_+^*$)}
+$$
+
+c'est-à-dire
+
+$$
+\Phi(\beta) = (Y - X\beta)^T (Y - X\beta) + k \sum_{j=1}^p |\beta_j|
+\qquad \text{($k \in \mathbb{R}_+^*$)}
+$$
+
+Préparation des données :
+```{r}
+library(glmnet)
+Y <- as.numeric(tab$Total)
+X <- as.matrix(tab[, 2:11])
+Xs <- scale(X)
+Y_matrix <- matrix(Y, length(Y), 1)
+```
+
+Recherche de la valeur optimale de $\lambda$ par validation croisée (avec `alpha = 1` pour spécifier la régression LASSO) :
+```{r}
+m_lasso <- cv.glmnet(Xs, Y_matrix, alpha = 1)
+print(paste(m_lasso$lambda.min))
+```
+
+On ajuste donc le modèle avec le $\lambda$ obtenu :
+```{r}
+lasso_model <- glmnet(Xs, Y_matrix, alpha = 1, lambda = m_lasso$lambda.min)
+```
+
+Visualisation de la validation croisée pour la régression LASSO :
+```{r}
+plot(m_lasso)
+abline(v = -log(m_lasso$lambda.min), col = "blue")
+```
+
+La ligne bleue représente le logarithme du $\lambda$ optimal pour le modèle LASSO. Ce graphique permet d'illustrer l'impact de la régularisation ($\lambda$) sur la qualité du modèle.
+
+Évolution des coefficients LASSO :
+```{r}
+plot(m_lasso$glmnet.fit, xvar = "lambda", label = TRUE)
+abline(v = -log(m_lasso$lambda.min), col = "blue")
+```
+
+Ce graphique montre comment les coefficients évoluent en fonction de $\lambda$. Contrairement à RIDGE, certains coefficients deviennent exactement zéro, illustrant la capacité de sélection de variables du LASSO.
+
+Après avoir identifié la valeur optimale du paramètre de régularisation $\lambda$, on extrait les coefficients associés du modèle :
+```{r}
+coeffs_lasso <- coef(lasso_model)
+print(coeffs_lasso)
+
+vl <- order(abs(coeffs_lasso), decreasing = TRUE)
+head(vl)
+```
+
+Nombre de variables conservées par LASSO :
+```{r}
+sum(coeffs_lasso != 0) - 1 # -1 pour exclure l'intercept
+```
+
+Le code suivant permet d'afficher les noms des variables les plus importantes :
+```{r}
+rownames(coeffs_lasso)[vl[1:6]]
+```
+
+On en conclut que les variables les plus importantes pour la régression LASSO sont le rayonnement thermique incident, le rayonnement solaire incident, le jour de la semaine, la température minimale quotidienne et les jours fériés.
+
+## Comparaison RIDGE vs LASSO
+Comparaison des 5 variables les plus importantes (hors intercept) :
+```{r}
+data.frame(Ridge_Top5 = names(coeffs_ridge)[vr[2:6]], Lasso_Top5 = rownames(coeffs_lasso)[vl[2:6]])
+```
+
+Nombre de variables conservées par chaque méthode :
+```{r}
+cat("RIDGE : 10 variables (toutes conservées)\n")
+cat("LASSO :", sum(coeffs_lasso != 0) - 1, "variables conservées\n")
+```
+
+On obtient donc des résultats assez similaires entre les deux méthodes, les variables sélectionnées étant les mêmes et dans le même ordre d'importance.

@@ -1,0 +1,136 @@
+\documentclass[12pt,a4paper]{report}
+
+\title{Rapport TP2}
+\author{Candice AUBERTIN - Ewen EXPUESTO}
+\date{20 Octobre 2025}
+
+\usepackage[a4paper, margin=1.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage[utf8]{inputenc} % handles UTF-8 characters
+\usepackage[T1]{fontenc} % better font encoding for accented characters
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\arabic{section}}
+
+\definecolor{backgroundColour}{rgb}{0.1, 0.1, 0.1}
+\definecolor{bordeaux}{rgb}{0.5, 0, 0}
+\definecolor{blueVar}{rgb}{0.0, 0.0, 1.0}
+\definecolor{greenKeyword}{rgb}{0.0, 0.5, 0.0}
+
+\usepackage{minted}
+\setminted{fontsize=\small, breaklines, frame=single, bgcolor=gray!5}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+
+\newpage
+\renewcommand{\contentsname}{Table des matières}
+
+\newpage
+
+\section{Electricity Data Set}
+
+
+Le but est d'expliquer la production totale quotidienne d'électricité au Mexique à l'aide des variables contenues dans \texttt{Mexico\_data.csv}.
+
+\subsection{Description des variables}
+\begin{itemize}
+    \item X0 : jour de l'année
+    \item RH : humidité relative (\%)
+    \item SSRD : rayonnement solaire incident à la surface (J.m$^{-2}$)
+    \item STRD : rayonnement thermique incident à la surface (J.m$^{-2}$)
+    \item T2M : température moyenne quotidienne à 2m (°C)
+    \item T2Mmax : température maximale quotidienne à 2m (°C)
+    \item T2Mmin : température minimale quotidienne à 2m (°C)
+    \item Covid : indice de rigueur COVID-19
+    \item Holidays : jours fériés, 1 = jour férié, 0 sinon
+    \item DOW : jour de la semaine, 0 = lundi, 1 = mardi, ...
+    \item TOY : jour de l'année (1 à 366)
+    \item Total : production quotidienne d'électricité (GWh)
+\end{itemize}
+
+\subsection{Régression Ridge}
+
+L'objectif est d'analyser les relations entre la variable cible day et un ensemble de prédicteurs présents dans le tableau de données \texttt{Mexico\_data.csv}. Nous allons donc construire un modèle de régression capable de prédire notre variable cible \texttt{Total} tout en limitant les problèmes dus à la présence d'un grand nombre de variables. \\
+Cette méthode nous permet de pénaliser les grandes valeurs des coefficients, afin de stabiliser l'estimation des paramètres et d'améliorer la généralisation du modèle.
+
+\[
+\Phi(\beta) = \|Y - X\beta\|_2^2 + k \|\beta\|_2^2 
+\qquad \text{($k \in \mathbb{R}_+^*$)}
+\]
+c'est à dire
+\[
+\Phi(\beta) = (Y - X\beta)^T (Y - X\beta) + k \sum_{j=1}^p \beta_j^2
+\qquad \text{($k \in \mathbb{R}_+^*$)}
+\]
+\begin{minted}{r}
+library(MASS)
+library(glmnet)
+tab <- read.csv(file = "Mexico_data.csv", header = TRUE, sep = ",")
+Y <- as.numeric(tab$Total)
+X <- as.matrix(tab[,-1])
+Xs <- scale(X)
+tabr <- data.frame(Y, Xs)
+rm<-lm.ridge(Y~.,data=tabr,lambda=seq(0,20,by=0.1))
+\end{minted}
+
+Cependant, le logiciel crash à l'exécution de cette dernière commande. C'est pourquoi nous allons utiliser la librairie \texttt{glmnet}:
+
+\begin{minted}{r}
+Y_matrix <- matrix(Y, length(Y), 1)
+m_glm<-cv.glmnet(Xs, Y_matrix, alpha = 0)
+print(m_glm$lambda.min)
+\end{minted}
+
+\texttt{[1] 9.505062} \\
+Avec \texttt{cv.glmnet} qui permet de minimiser la fonction $\Phi$\\
+On ajuste donc le modèle avec le $\lambda$ obtenu:
+
+\begin{minted}{r}
+m_adjusted<- glmnet(Xs, Y_matrix, alpha = 0, lambda = m_glm$lambda.min)
+\end{minted}
+
+On \texttt{plot} la validation croisée pour la régression Ridge:
+
+\begin{minted}{r}
+mg<- cv.glmnet(Xs, Y, alpha = 0)
+plot(mg)
+abline(v = log(mg$lambda.min), col = "blue")
+rm<- glmnet(Xs, Y, alpha = 0)
+plot(rm, xvar = "lambda", label = TRUE)
+\end{minted}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Capture du 2025-10-13 14-46-28.png}
+\end{figure}
+
+La ligne bleue représente le logarithme du $\lambda$ qui optimise le modèle. Ce graphique permet d'illustrer l'impact de la régularisation ($\lambda$) sur la qualité du modèle.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Capture du 2025-10-13 14-45-48.png}
+\end{figure}
+
+Après avoir identifié la valeur optimale du paramètre de régularisation $\lambda$, on extrait les coefficients associés du modèle. On peut ensuite déterminer quelles variables jouent le rôle le plus significatif dans la prédiction
+
+\begin{minted}{r}
+rm <- glmnet(Xs, Y, alpha = 0)
+cr <- predict(rm, type = "coefficients", s = mg$lambda.min)
+vr <- order(abs(cr), decreasing = TRUE)
+head(vr)
+\end{minted}
+
+\texttt{[1]  1 12 10  4  7  3}
+
+\subsection{Régression Ridge}
+
+\end{document}

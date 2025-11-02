@@ -1,0 +1,88 @@
+# =============================
+#   Étude de la valeur boursière d'Amazon
+# =============================
+
+# Chargement des packages utiles
+if(!require(dplyr)) install.packages("dplyr")
+if(!require(lubridate)) install.packages("lubridate")
+
+library(dplyr)
+library(lubridate)
+
+# 1) Lecture du fichier CSV fourni
+data <- read.csv("Donnees_amazon.csv", stringsAsFactors = FALSE)
+
+# Vérifier les noms de colonnes
+print(names(data))
+
+# Identifier la colonne cible (ici supposée être "Adj.Close" ou "Adj.Close." ou similaire)
+adj_col <- grep("Adj", names(data), ignore.case = TRUE, value = TRUE)[1]
+if(is.na(adj_col)) stop("Colonne 'Adj Close' introuvable dans le fichier. Vérifie les noms de colonnes.")
+data$Adj.Close <- data[[adj_col]]
+
+# Convertir les dates
+data$Date <- as.Date(data$Date)
+
+# 2) Garder uniquement la première valeur de chaque année
+data <- data %>% arrange(Date) %>% 
+  mutate(ANNEE = year(Date)) %>% 
+  group_by(ANNEE) %>% slice(1) %>% ungroup()
+
+# Vérification
+head(data)
+
+# 3) Modèle linéaire simple : Adj.Close ~ ANNEE
+Y <- data$Adj.Close
+X <- data$ANNEE
+
+fit_lin <- lm(Adj.Close ~ ANNEE, data = data)
+summary(fit_lin)
+
+# Graphique : valeurs observées vs prédictions
+plot(data$Adj.Close, fitted(fit_lin), 
+     xlab="Valeurs observées", ylab="Valeurs prédites",
+     pch=19, col="blue")
+grid(); abline(a=0, b=1, col="red")
+
+# Visualisation du modèle linéaire sur les données
+plot(data$ANNEE, Y, xlab="Année", ylab="Valeur boursière Amazon")
+abline(fit_lin, col="red", lwd=2)
+grid()
+
+# 4) Transformation logarithmique : log(Y)
+data$Log_Close <- log(Y)
+
+# Visualisation des données transformées
+plot(data$ANNEE, data$Log_Close, xlab="Année", ylab="ln(Adj.Close)")
+
+# Régression linéaire sur les données transformées
+fit_log <- lm(Log_Close ~ ANNEE, data = data)
+summary(fit_log)
+
+# Graphique : log valeurs observées vs prédictions
+plot(data$Log_Close, fitted(fit_log),
+     xlab="Log observé", ylab="Log prédit",
+     pch=19, col="blue")
+grid(); abline(a=0, b=1, col="red")
+
+# Résidus du modèle log
+plot(data$ANNEE, residuals(fit_log), 
+     xlab="Années", ylab="Résidus",
+     main="Résidus du modèle log-linéaire")
+abline(h=0, col="red")
+grid()
+
+# 5) Retour à l’échelle originale : prédictions exponentielles
+a <- coef(fit_log)["ANNEE"]
+b <- coef(fit_log)["(Intercept)"]
+
+x_seq <- seq(min(data$ANNEE), max(data$ANNEE), by = 0.1)
+y_pred <- exp(a * x_seq + b)
+
+plot(data$ANNEE, Y, pch=19, col="blue", 
+     xlab="Année", ylab="Valeur boursière Amazon")
+lines(x_seq, y_pred, col="red", lwd=2)
+grid()
+
+
+https://finance.yahoo.com/quote/AMZN/history/?utm_source=chatgpt.com&period1=1104537600&period2=1758728462&frequency=1mo

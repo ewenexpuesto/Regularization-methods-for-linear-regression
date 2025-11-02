@@ -1,0 +1,374 @@
+---
+title: "TP3 - Exercice 2"
+author: "EXPUESTO Ewen, AUBERTIN Candice"
+date: "20 octobre 2025"
+output: 
+    pdf_document:
+        toc: false
+        number_sections: true
+---
+
+L'objectif est de prédire si la quantité d'électricité générée (Total) est inférieure ou supérieure à la médiane, en utilisant un modèle de régression logistique sparse (LASSO).
+
+# Traitement des données
+
+## Importation des données
+
+```{r}
+rm(list = ls())
+graphics.off()
+```
+
+```{r}
+library(glmnet)
+tab <- read.csv(file = "Mexico_data.csv", header = TRUE, sep = ",")
+```
+
+## D'une description continue à une classification
+
+On ajoute la variable y qui correspond à Total transformée en 1 ou 0 selon si la consommation d'électricité est supérieure ou inférieure à la médiane.
+Dans le tableau x des prédicteurs, on enlève la colonne "Total" ainsi que la colonne "TOY" (Time of Year) et la colonne "X0" qui correspond à la date DD-MM-YYYY.
+```{r}
+median_total <- median(tab$Total)
+y <- as.numeric(tab$Total > median_total)
+tab$y <- y
+x <- as.matrix(tab[, -which(names(tab) %in% c("Total", "TOY", "y", "X0"))])
+```
+
+Affichage des 10 premières lignes de tab, x et y :
+```{r}
+head(tab, 10)
+head(x, 10)
+head(y, 10)
+```
+
+## Scatterplot
+
+Scatterplot matrix des variables étudiées :
+```{r}
+vars_pairs <- tab[, -c(1, which(names(tab) %in% c("Total", "TOY", "X0")))]
+
+colors <- ifelse(tab$y == 1, "red", "blue")
+pairs(vars_pairs, pch = 21, bg = colors)
+```
+
+# Modèle logistique
+Ajustement du modèle logistique :
+```{r}
+res <- glm(y ~ . - TOY - X0 - Total, data = tab, family = binomial)
+summary(res)
+```
+
+## Résultats du modèle logistique
+Récupère les coefficients du modèle logistique et les trie par ordre d'importance :
+```{r}
+coeffs_data <- res$coefficients
+coeffs_data <- coeffs_data[names(coeffs_data) != "(Intercept)"]
+
+coeff_pos <- coeffs_data[coeffs_data > 0]
+coeff_neg <- coeffs_data[coeffs_data < 0]
+
+coeff_pos_sorted <- sort(coeff_pos)
+coeff_neg_sorted <- sort(coeff_neg, decreasing = TRUE)
+```
+
+Importance des coefficients positifs :
+```{r}
+coeff_pos_sorted
+```
+
+Importance des coefficients négatifs :
+```{r}
+coeff_neg_sorted
+```
+
+## Performances du modèle logistique
+On peut maintenant prédire les résultats avec la focntion `predict.glm`. `pred_link` et `pred_resp` représentent la prédiction du modèle à partir des mêmes données d'entraînement :
+```{r}
+pred_link <- predict.glm(res, type = "link")
+pred_resp <- predict.glm(res, type = "response")
+```
+
+En utilisant "link", le modèle logistique travaille linéairement (sur $]-\infty,+\infty[$) tandis qu'avec "response" il travaille avec une approche probabiliste (résultat sur $[0,1]$).
+
+### Graphe des classes
+Graphe d'un modèle logistique superposé aux données classées en TN/TF/FP/FN :
+```{r}
+# Convert probabilities to predicted class
+# with 0 being below the median and 1 above
+pred_class <- ifelse(pred_resp >= 0.5, 1, 0)
+
+point_colors <- ifelse(
+  pred_class == y,
+  "green", # True positives / True negatives
+  "orange" # False positives / False negatives
+)
+
+
+plot(
+  y + runif(length(y), -0.02, 0.02),
+  pred_resp,
+  xlab = "Actual y",
+  ylab = "Predicted probability",
+  main = "Predicted vs Actual (Green = TP/TN, Red = FP/FN)",
+  col = point_colors,
+  pch = 19,
+  cex = 0.5
+)
+
+x_log <- seq(0, 1, length.out = 200)
+y_log <- 1 / (1 + exp(-10 * (x_log - 0.5)))
+lines(x_log, y_log, col = "red", lwd = 2)
+abline(h = 0.5, col = "blue", lty = 2)
+```
+
+### Matrices de confusion
+
+Matrice de confusion :
+```{r}
+pred_resp <- predict(res, type = "response")
+y_pred <- ifelse(pred_resp > 0.5, 1, 0)
+cm <- table(Predicted = y_pred, Actual = tab$y)
+cm
+
+tp <- cm[2, 2]
+tn <- cm[1, 1]
+fp <- cm[2, 1]
+fn <- cm[1, 2]
+
+accuracy <- (tp + tn) / sum(cm)
+false_positive_rate <- fp / sum(cm)
+false_negative_rate <- fn / sum(cm)
+```
+
+Accuracy (TP + TN) : 
+```{r}
+accuracy
+```
+
+False positive rate :
+```{r}
+false_positive_rate
+```
+
+False negative rate :
+```{r}
+false_negative_rate
+```
+
+### K-fold
+
+Split data into K roughly equal parts (folds) then train on K-1 folds and test on the held-out fold. The accuracy is measured as TP + TN :
+```{r}
+cv_perf <- function(data, kk = 5) {
+  n <- nrow(data)
+  folds <- sample(rep(1:kk, length.out = n))
+  perf <- numeric(kk)
+  for (k in 1:kk) {
+    train <- data[folds != k, ]
+    test  <- data[folds == k, ]
+    fit <- glm(y ~ ., data = train, family = binomial)
+    p <- predict(fit, newdata = test, type = "response")
+    pred <- ifelse(p >= 0.5, 1, 0) # Convert to 0 and 1
+    perf[k] <- mean(pred == test$y)
+  }
+  perf
+}
+```
+
+Comparison K = 5 vs K = 10, larger K usually reduces bias of the performance estimate but can increase variance and computation cost :
+```{r}
+input <- tab[, -c(1, which(names(tab) %in% c("Total", "TOY", "X0")))]
+acc5  <- cv_perf(input, kk = 5)
+acc10 <- cv_perf(input, kk = 10)
+```
+
+K = 5 accuracies (TP + TN) : 
+```{r}
+acc5
+```
+
+K = 10 accuracies (TP + TN) : 
+```{r}
+acc10
+```
+
+The boxplot of those K values shows central tendency, spread and outliers thus giving an idea of variability and stability of the estimator :
+```{r}
+boxplot(acc5, acc10, names = c("K = 5", "K = 10"),
+        ylab = "Accuracy", main = "K-fold accuracies")
+points(1:2, c(mean(acc5), mean(acc10)), col = c("red", "blue"), pch = 19)
+legend("bottomleft", legend = c(paste0("mean K = 5 :", round(mean(acc5), 3)),
+                                paste0("mean K = 10 :", round(mean(acc10), 3))),
+       pch = 19, col = c("red", "blue"))
+```
+Ainsi il y a une plus grande variabilité pour un plus grand nombre de folds comme prévu avec toutefois une précision de la prédicion à peine mieux.
+
+# Sélection d'un autre modèle ?
+## Régression logistique Forward
+
+```{r}
+resfor <- step(res, direction = "forward")
+resfor
+```
+
+## Régression logistique Backward
+```{r}
+resback <- step(res, direction = "backward")
+resback
+```
+
+## Régression logistique Stepwise
+```{r}
+resstep <- step(res, direction = "both")
+resstep
+```
+
+## Regression logistique RIDGE
+
+Découpage des données en deux groupes et détermination du modèle RIDGE :
+```{r}
+split <- sample(c(TRUE, FALSE), nrow(tab), replace = TRUE, prob = c(0.8, 0.2))
+train_tab <- tab[split, ]
+test_tab <- tab[!split, ]
+
+x_train <- as.matrix(train_tab[, -c(1, which(names(tab) %in%
+                                               c("Total", "TOY", "X0", "y")))])
+x_train_s <- scale(x_train)
+y_train <- as.numeric(train_tab$y)
+y_train_matrix <- matrix(y_train, length(y_train), 1)
+
+rm <- glmnet(x_train_s, y_train_matrix, alpha = 0, family = "binomial")
+plot(rm, xvar = "lambda", label = TRUE)
+```
+
+Détermination du $\lambda$ optimal par deux méthodes avec le modèle RIDGE :
+```{r}
+cv_ridge <- cv.glmnet(
+  x_train_s,
+  y_train_matrix,
+  alpha = 0,
+  family = "binomial",
+  grouped = FALSE,
+  n_folds = 10
+)
+cv_ridge$lambda.min
+cv_ridge$lambda.1se
+```
+
+Affichage du modèle RIDGE :
+```{r}
+plot(cv_ridge)
+abline(v = -log(cv_ridge$lambda.min), col = "blue")
+abline(v = -log(cv_ridge$lambda.1se), col = "#00b7ff")
+```
+
+Modèles RIDGE avec le $\lambda$ optimal :
+```{r}
+ridge_min <- glmnet(
+  x_train_s,
+  y_train_matrix,
+  alpha = 0,
+  family = "binomial",
+  lambda = cv_ridge$lambda.min
+)
+plot(ridge_min, xvar = "lambda", label = TRUE)
+
+ridge_1se <- glmnet(
+  x_train_s,
+  y_train_matrix,
+  alpha = 0,
+  family = "binomial",
+  lambda = cv_ridge$lambda.1se
+)
+plot(ridge_1se, xvar = "lambda", label = TRUE)
+```
+
+Calcul des variables les plus importantes pour le minimum :
+```{r}
+coef_ridge_min <- coef(ridge_min, s = cv_ridge$lambda.min)
+coef_ridge_min_vec <- as.numeric(coef_ridge_min)
+names(coef_ridge_min_vec) <- rownames(coef_ridge_min)
+important_vars_ridge_min <- sort(abs(coef_ridge_min_vec), decreasing = TRUE)
+head(important_vars_ridge_min, 5)
+```
+
+Détermination des variables les plus importantes pour le 1 standard error :
+```{r}
+coef_ridge_1se <- coef(ridge_1se, s = cv_ridge$lambda.1se)
+coef_ridge_1se_vec <- as.numeric(coef_ridge_1se)
+names(coef_ridge_1se_vec) <- rownames(coef_ridge_1se)
+important_vars_ridge_1se <- sort(abs(coef_ridge_1se_vec), decreasing = TRUE)
+head(important_vars_ridge_1se, 5)
+```
+
+Conclusion : les variables les plus importantes sont Holidays, DOW, T2M, T2Mmin. On obtient le même résultat avec les deux $\lambda$ optimaux avec seul un ordre différent.
+
+## Régression logistique LASSO
+```{r}
+lam <- glmnet(x_train, y_train, alpha = 1, family = "binomial")
+plot(lam, xvar = "lambda", label = TRUE)
+```
+
+```{r}
+cv_lasso <- cv.glmnet(
+  x_train,
+  y_train,
+  alpha = 1,
+  family = "binomial",
+  grouped = FALSE
+)
+```
+
+Affichage du meilleur lambda :
+```{r}
+cv_lasso$lambda.min
+```
+
+Affichage du meilleur lambda 1se :
+```{r}
+print(cv_lasso$lambda.1se)
+```
+
+```{r}
+plot(cv_lasso)
+```
+
+```{r}
+lasso_min <- glmnet(
+  x_train,
+  y_train,
+  alpha = 1,
+  family = "binomial",
+  lambda = cv_lasso$lambda.min
+)
+
+lasso_1se <- glmnet(
+  x_train,
+  y_train,
+  alpha = 1,
+  family = "binomial",
+  lambda = cv_lasso$lambda.1se
+)
+```
+
+Impact des coefficients pour $\lambda_{\min}$
+
+```{r}
+coef_lasso_min <- coef(lasso_min, s = cv_lasso$lambda.min)
+coef_lasso_min_vec <- as.numeric(coef_lasso_min)
+names(coef_lasso_min_vec) <- rownames(coef_lasso_min)
+important_vars_lasso_min <- sort(abs(coef_lasso_min_vec), decreasing = TRUE)
+head(important_vars_lasso_min, 10)
+
+```
+
+Impact des coefficients pour $\lambda_{1se}$
+
+```{r}
+coef_lasso_1se <- coef(lasso_1se, s = cv_lasso$lambda.1se)
+coef_lasso_1se_vec <- as.numeric(coef_lasso_1se)
+names(coef_lasso_1se_vec) <- rownames(coef_lasso_1se)
+important_vars_lasso_1se <- sort(abs(coef_lasso_1se_vec), decreasing = TRUE)
+head(important_vars_lasso_1se, 10)
+```
