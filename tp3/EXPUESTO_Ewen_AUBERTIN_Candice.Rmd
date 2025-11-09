@@ -224,7 +224,7 @@ resstep <- step(res, direction = "both")
 resstep
 ```
 
-## Regression logistique RIDGE
+## Régression logistique RIDGE
 
 Découpage des données en deux groupes et détermination du modèle RIDGE :
 ```{r}
@@ -250,7 +250,7 @@ cv_ridge <- cv.glmnet(
   alpha = 0,
   family = "binomial",
   grouped = FALSE,
-  n_folds = 10
+  nfolds = 10
 )
 cv_ridge$lambda.min
 cv_ridge$lambda.1se
@@ -272,7 +272,11 @@ ridge_min <- glmnet(
   family = "binomial",
   lambda = cv_ridge$lambda.min
 )
-plot(ridge_min, xvar = "lambda", label = TRUE)
+# Shows coefficient shrinkage across many lambdas
+plot(rm, xvar = "lambda", label = TRUE)
+
+# Shows cross-validation curve with optimal lambda markers
+plot(cv_ridge)
 
 ridge_1se <- glmnet(
   x_train_s,
@@ -281,7 +285,16 @@ ridge_1se <- glmnet(
   family = "binomial",
   lambda = cv_ridge$lambda.1se
 )
-plot(ridge_1se, xvar = "lambda", label = TRUE)
+
+# Coefficient shrinkage paths
+plot(rm, xvar = "lambda", label = TRUE)
+abline(v = log(cv_ridge$lambda.min), col = "blue", lty = 2)
+abline(v = log(cv_ridge$lambda.1se), col = "skyblue", lty = 2)
+
+# CV curve (CV error vs lambda)
+plot(cv_ridge)
+abline(v = log(cv_ridge$lambda.min), col = "blue", lty = 2)
+abline(v = log(cv_ridge$lambda.1se), col = "skyblue", lty = 2)
 ```
 
 Calcul des variables les plus importantes pour le minimum :
@@ -302,21 +315,22 @@ important_vars_ridge_1se <- sort(abs(coef_ridge_1se_vec), decreasing = TRUE)
 head(important_vars_ridge_1se, 5)
 ```
 
-Conclusion : les variables les plus importantes sont Holidays, DOW, T2M, T2Mmin. On obtient le même résultat avec les deux $\lambda$ optimaux avec seul un ordre différent.
+Conclusion : les variables les plus importantes sont T2Min, T2M, STRD, T2Max, SSRD. On obtient le même résultat avec les deux $\lambda$ optimaux avec seul un ordre différent.
 
 ## Régression logistique LASSO
 ```{r}
-lam <- glmnet(x_train, y_train, alpha = 1, family = "binomial")
+lam <- glmnet(x_train_s, y_train, alpha = 1, family = "binomial")
 plot(lam, xvar = "lambda", label = TRUE)
 ```
 
 ```{r}
 cv_lasso <- cv.glmnet(
-  x_train,
+  x_train_s,
   y_train,
   alpha = 1,
   family = "binomial",
-  grouped = FALSE
+  grouped = FALSE, 
+  nfolds = 10
 )
 ```
 
@@ -355,11 +369,11 @@ lasso_1se <- glmnet(
 Impact des coefficients pour $\lambda_{\min}$
 
 ```{r}
-coef_lasso_min <- coef(lasso_min, s = cv_lasso$lambda.min)
+coef_lasso_min <- coef(lasso_min)
 coef_lasso_min_vec <- as.numeric(coef_lasso_min)
 names(coef_lasso_min_vec) <- rownames(coef_lasso_min)
 important_vars_lasso_min <- sort(abs(coef_lasso_min_vec), decreasing = TRUE)
-head(important_vars_lasso_min, 10)
+head(important_vars_lasso_min, 5)
 
 ```
 
@@ -370,5 +384,82 @@ coef_lasso_1se <- coef(lasso_1se, s = cv_lasso$lambda.1se)
 coef_lasso_1se_vec <- as.numeric(coef_lasso_1se)
 names(coef_lasso_1se_vec) <- rownames(coef_lasso_1se)
 important_vars_lasso_1se <- sort(abs(coef_lasso_1se_vec), decreasing = TRUE)
-head(important_vars_lasso_1se, 10)
+head(important_vars_lasso_1se, 5)
+```
+
+# Conclusion : comparaison des modèles
+
+```{r}
+# On retire la colonne qui n'est pas un chiffre
+tab2 <- subset(tab, select = -X0)
+
+K <- 10
+n <- nrow(tab2)
+folds <- sample(rep(1:K, length.out = n))
+
+acc_step <- numeric(K)
+acc_back <- numeric(K)
+acc_for  <- numeric(K)
+acc_ridge <- numeric(K)
+acc_lasso <- numeric(K)
+
+for (i in 1:K) {
+  test_idx <- which(folds == i)
+  train_idx <- setdiff(seq_len(n), test_idx)
+  
+  train_tab <- tab2[train_idx, ]
+  test_tab  <- tab2[test_idx, ]
+  
+  # On retire la colonne résultat et les colonnes redondantes
+  x_train <- as.matrix(train_tab[, -c(1, which(names(tab2) %in% c("Total", "TOY", "y")))])
+  x_test  <- as.matrix(test_tab[, -c(1, which(names(tab2) %in% c("Total", "TOY", "y")))])
+  x_train_s <- scale(x_train)
+  x_test_s  <- scale(x_test, center = attr(x_train_s, "scaled:center"), scale = attr(x_train_s, "scaled:scale"))
+  y_train <- as.numeric(train_tab$y)
+  y_test  <- as.numeric(test_tab$y)
+  
+  # Calcul des modèles à partir des données test et train
+  res <- glm(y ~ . - TOY - Total, data = train_tab, family = binomial)
+  
+  resstep <- step(res, direction = "both", trace = 0)
+  resback <- step(res, direction = "backward", trace = 0)
+  resfor  <- step(res, direction = "forward", trace = 0)
+  
+  # Tentative de prédiction
+  pred_step <- predict(resstep, newdata = test_tab, type = "response")
+  pred_back <- predict(resback, newdata = test_tab, type = "response")
+  pred_for  <- predict(resfor,  newdata = test_tab, type = "response")
+  
+  # Calcul de la précision
+  acc_step[i] <- mean((pred_step > 0.5) == y_test)
+  acc_back[i] <- mean((pred_back > 0.5) == y_test)
+  acc_for[i]  <- mean((pred_for  > 0.5) == y_test)
+  
+  # Et même chose pour RIDGE et LASSO
+  cv_ridge <- cv.glmnet(x_train_s, y_train, alpha = 0, family = "binomial", grouped = FALSE)
+  ridge_min <- glmnet(x_train_s, y_train, alpha = 0, family = "binomial", lambda = cv_ridge$lambda.min)
+  ridge_pred <- predict(ridge_min, newx = x_test_s, type = "response")
+  acc_ridge[i] <- mean((ridge_pred > 0.5) == y_test)
+  
+  cv_lasso <- cv.glmnet(x_train_s, y_train, alpha = 1, family = "binomial", grouped = FALSE)
+  lasso_min <- glmnet(x_train_s, y_train, alpha = 1, family = "binomial", lambda = cv_lasso$lambda.min)
+  lasso_pred <- predict(lasso_min, newx = x_test_s, type = "response")
+  acc_lasso[i] <- mean((lasso_pred > 0.5) == y_test)
+}
+
+# Affichage des résultats
+cat("Stepwise - précision moyenne :", round(mean(acc_step), 3),
+    "| erreur moyenne :", round(1 - mean(acc_step), 3), "\n")
+
+cat("Backward - précision moyenne :", round(mean(acc_back), 3),
+    "| erreur moyenne :", round(1 - mean(acc_back), 3), "\n")
+
+cat("Forward - précision moyenne :", round(mean(acc_for), 3),
+    "| erreur moyenne :", round(1 - mean(acc_for), 3), "\n")
+
+cat("Ridge lambda_min - précision moyenne :", round(mean(acc_ridge), 3),
+    "| erreur moyenne :", round(1 - mean(acc_ridge), 3), "\n")
+
+cat("LASSO lambda_min - précision moyenne :", round(mean(acc_lasso), 3),
+    "| erreur moyenne :", round(1 - mean(acc_lasso), 3), "\n")
 ```
