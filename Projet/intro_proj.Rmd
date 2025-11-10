@@ -1,0 +1,51 @@
+---
+title: "mrr_project_bio"
+author: ""
+date: "2025-11-10"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Classification of Cancer outcome using Genetic and Clinical data
+
+# Introduction
+
+This project investigates the effect of genetic and clinical variables on the survival outcome of breast cancer patients. The data contains records of more than 1000 breast cancer patients from several research institutions. Clinical data contains patient-related and tumor-related information. Additionally mRNA gene expression data is available for each patient. The gene expression data has been processed to include only the top 5000 most variable genes on the transformed scale (log2(counts + 1)).
+
+We consider that the main outcome variable of interest is **vital_status**, which is defined in clinical data.
+
+## Load data
+
+```{r cars}
+load("mrr_bio.Rdata")
+
+# genetic data: n x p matrix
+dim(GeneX) # 1231 x 5000 
+str(GeneX)
+colnames(GeneX)[1:10] # first 10 names of genes
+
+# clinical data
+dim(clinical_data) # 1231 x 24
+head(clinical_data)
+colnames(clinical_data) # variables
+
+# outcome variable
+y = clinical_data$vital_status
+table(y)
+```
+
+## Exploratory data analysis: example
+
+```{r}
+# summary statistics of first 10 genes
+apply(GeneX[,1:10],2, summary)
+
+# clinical variables: gender
+unique(clinical_data$gender) # unique values
+table(clinical_data$gender) # frequency
+```
+
