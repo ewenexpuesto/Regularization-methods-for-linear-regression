@@ -1,0 +1,49 @@
+\documentclass[12pt,a4paper]{report}
+
+\title{Rapport TP1}
+\author{Candice AUBERTIN - Ewen EXPUESTO}
+\date{29 Septembre 2025}
+
+\usepackage[a4paper, margin=1.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage[utf8]{inputenc} % handles UTF-8 characters
+\usepackage[T1]{fontenc} % better font encoding for accented characters
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\arabic{section}}
+
+\definecolor{backgroundColour}{rgb}{0.1, 0.1, 0.1}
+\definecolor{bordeaux}{rgb}{0.5, 0, 0}
+\definecolor{blueVar}{rgb}{0.0, 0.0, 1.0}
+\definecolor{greenKeyword}{rgb}{0.0, 0.5, 0.0}
+
+\usepackage{minted}
+\setminted{fontsize=\small, breaklines, frame=single, bgcolor=gray!5}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+But : prédire la donnée clinique vie/mort.
+Donc on veut utiliser des modèles de classification : 
+- KNN avec $k=2$
+- kmeans avec $k=2$
+- régression logistique
+- groupe-lasso ?
+- elastic net ?
+
+Avec avant une sélection de variables : 
+- stepwise
+
+Description des données : 
+- 1231 données de patients avec leur nom du type `EW-A2FS-01A-11R-A17B` avec pour chacun les 5000 gènes 
+
+
+\end{document}

@@ -10,9 +10,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-## Classification of Cancer outcome using Genetic and Clinical data
+# Classification of Cancer outcome using Genetic and Clinical data
 
-# Introduction
+## Introduction
 
 This project investigates the effect of genetic and clinical variables on the survival outcome of breast cancer patients. The data contains records of more than 1000 breast cancer patients from several research institutions. Clinical data contains patient-related and tumor-related information. Additionally mRNA gene expression data is available for each patient. The gene expression data has been processed to include only the top 5000 most variable genes on the transformed scale (log2(counts + 1)).
 
@@ -20,23 +20,49 @@ We consider that the main outcome variable of interest is **vital_status**, whic
 
 ## Load data
 
-```{r cars}
+```{r}
 load("mrr_bio.Rdata")
+```
 
-# genetic data: n x p matrix
-dim(GeneX) # 1231 x 5000 
+### Genes data
+
+```{r}
+dim(GeneX)
 str(GeneX)
-colnames(GeneX)[1:10] # first 10 names of genes
+colnames(GeneX)[1:10]
+rownames(GeneX)[1:10]
+```
 
-# clinical data
-dim(clinical_data) # 1231 x 24
-head(clinical_data)
-colnames(clinical_data) # variables
+`GeneX` est un tableau de 1231 lignes par 5000 colonnes :
 
-# outcome variable
-y = clinical_data$vital_status
+- Les lignes correspondent aux patients avec le nom de chaque ligne l'identifiant du patient comme `EW-A2FS-01A-11R-A17B`.
+- Les colonnes correspondent aux gènes avec chaque nom de colonne un gène comme `CLEC3A`, qui sont les 5000 gènes les plus variables d'une personne à l'autre.
+- Chaque case correspond à la valeur d'expression (un entier) d'un certain gène (colonne) pour un certain patient (ligne)
+
+### Clinical data
+
+```{r}
+load("mrr_bio.Rdata")
+dim(clinical_data)
+head(clinical_data[, 0:5])
+colnames(clinical_data)
+```
+
+`clinical_data` est un tableau de 1231 lignes par 24 colonnes :
+
+- Les lignes correspondent aux noms des patients comme pour `GeneX`.
+- Les colonnes sont les noms des données cliniques, comme `initial_weight`, `sites_of_involvement` et `vital_status`.
+- Chaque case correspond à la valeur de la donnée clinique pour chaque patient, donc ce peut être un entier ou une chaîne de caractères.
+
+
+### Outcome variable
+
+The outcome variable is the vital status of the patient (dead or alive) :
+```{r}
+y <- clinical_data$vital_status
 table(y)
 ```
+
 
 ## Exploratory data analysis: example
 
