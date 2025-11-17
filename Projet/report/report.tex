@@ -1,8 +1,6 @@
 \documentclass[12pt,a4paper]{report}
 
-\title{Rapport TP1}
-\author{Candice AUBERTIN - Ewen EXPUESTO}
-\date{29 Septembre 2025}
+
 
 \usepackage[a4paper, margin=1.5cm]{geometry}
 \usepackage{graphicx}
@@ -22,28 +20,60 @@
 \definecolor{blueVar}{rgb}{0.0, 0.0, 1.0}
 \definecolor{greenKeyword}{rgb}{0.0, 0.5, 0.0}
 
-\usepackage{minted}
-\setminted{fontsize=\small, breaklines, frame=single, bgcolor=gray!5}
-
 \begin{document}
+
+\makeatletter
+\def\maketitle{
+  \begin{flushleft}
+    {\LARGE \textbf{Rapport Projet 1 - Données cliniques cancer du sein}}\\[4pt]
+    {\large Candice AUBERTIN - Ewen EXPUESTO (Binôme n°)}%
+  \end{flushleft}
+  \begin{flushright}
+    \large 24 Novembre 2025
+  \end{flushright}
+  \vspace{1cm}
+}
+\makeatother
 
 \maketitle
 
-\tableofcontents
+\vspace{-2cm}
 
-But : prédire la donnée clinique vie/mort.
-Donc on veut utiliser des modèles de classification : 
-- KNN avec $k=2$
-- kmeans avec $k=2$
-- régression logistique
-- groupe-lasso ?
-- elastic net ?
+\section{Introduction}
+La survie des patientes atteintes d'un cancer du sein dépend d'interactions entre leurs données cliniques et caractéristiques génomiques. Dans ce rapport, nous allons aborder l'analyse de ces données et ainsi comprendre quels modèles utiliser pour prédire la variable (`vital\_status`).
 
-Avec avant une sélection de variables : 
-- stepwise
+\section{Présentation du jeu de données}
+\subsection{Données}
+Le jeu de données consiste en deux tableaux de données pour 1\,231 patientes :
+\begin{itemize}
+  \item \textbf{Expression génique (\texttt{GeneX})} : matrice $1231 \times 5000$. Les lignes correspondent aux patients avec le nom de chaque ligne l'identifiant du patient comme `EW-A2FS-01A-11R-A17B`. Les colonnes correspondent aux gènes avec chaque nom de colonne un gène comme `CLEC3A`, qui sont les 5000 gènes les plus variables d'une personne à l'autre. Chaque case correspond à la valeur d'expression (un flottant) d'un certain gène (colonne) pour un certain patient (ligne) -> variables continues
+  \item \textbf{Profil clinique (\texttt{clinical\_data})} : matrice $1231 \times 24$. Les lignes correspondent aux noms des patients comme pour `GeneX`. Les colonnes sont les noms des données cliniques, comme `initial\_weight`, `sites\_of\_involvement` et `vital\_status`. Chaque case correspond à la valeur de la donnée clinique pour chaque patient, donc ce peut être un entier ou une chaîne de caractères.
+\end{itemize}
 
-Description des données : 
-- 1231 données de patients avec leur nom du type `EW-A2FS-01A-11R-A17B` avec pour chacun les 5000 gènes 
+\subsection{Variable cible : \texttt{vital\_status}}
+La variable binaire \texttt{vital\_status} encode l'issue «~Alive~» ou «~Dead~».
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{occurrence y.png}
+  \caption{Distribution de la variable \texttt{vital\_status}}
+  \label{fig:occurrence_y}
+\end{figure}
+
+\section{Problématique}
+Nous cherchons à déterminer quelles caractéristiques cliniques et de profils d'expression génique améliore la prédiction du statut vital et quantifier cela. Ainsi, nos principales interrogations sont :
+\begin{itemize}
+  \item Quelles variables sont utilises pour prédire `vital\_status` ?
+  \item Quels modèles utiliser (kNN, k-means, régression logistique, lasso, group lasso, ridge, elastic net)
+  \item Quelle fiabilité est associée à chaque modèle ?
+  \item Quelle interprétabilité est associée à notre modèle prédictif ?
+\end{itemize}
+
+\secion{Notre étude}
+Pour la tableau de gènes, traçons un premier plot pour chaque gène avec la distribution gaussienne de mort/vivant pour chaque gène. Ensuite nous pouvons prendre la moyenne de ce graphe.
+Et ensuite tracer toutes les moyennes correspondant à chaque gène dans un graphe commun et vérifier lesquels varient fortement de la médiane (la médiane des moyennes)
+
+Et ensuite LASSO pour réduire la dimension
 
 
 \end{document}

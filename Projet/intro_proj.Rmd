@@ -37,7 +37,7 @@ rownames(GeneX)[1:10]
 
 - Les lignes correspondent aux patients avec le nom de chaque ligne l'identifiant du patient comme `EW-A2FS-01A-11R-A17B`.
 - Les colonnes correspondent aux gènes avec chaque nom de colonne un gène comme `CLEC3A`, qui sont les 5000 gènes les plus variables d'une personne à l'autre.
-- Chaque case correspond à la valeur d'expression (un entier) d'un certain gène (colonne) pour un certain patient (ligne)
+- Chaque case correspond à la valeur d'expression (un flottant) d'un certain gène (colonne) pour un certain patient (ligne) -> variables continues
 
 ### Clinical data
 
@@ -54,6 +54,12 @@ colnames(clinical_data)
 - Les colonnes sont les noms des données cliniques, comme `initial_weight`, `sites_of_involvement` et `vital_status`.
 - Chaque case correspond à la valeur de la donnée clinique pour chaque patient, donc ce peut être un entier ou une chaîne de caractères.
 
+Voici chaque type correspondant à chaque donnée : 
+
+```{r}
+
+```
+
 
 ### Outcome variable
 
@@ -61,6 +67,13 @@ The outcome variable is the vital status of the patient (dead or alive) :
 ```{r}
 y <- clinical_data$vital_status
 table(y)
+
+# Visualize the outcome variable
+barplot(table(y), 
+    main = "Distribution of Vital Status",
+    xlab = "Vital Status",
+    ylab = "Frequency",
+    col = c("lightblue", "salmon"))
 ```
 
 
@@ -75,3 +88,21 @@ unique(clinical_data$gender) # unique values
 table(clinical_data$gender) # frequency
 ```
 
+## Data analysis
+
+But : prédire la donnée clinique vie/mort.
+Donc on veut utiliser des modèles de classification : 
+- KNN avec $k=2$
+- kmeans avec $k=2$
+- régression logistique
+- groupe-lasso ?
+- elastic net ?
+- lasso, ridge ?
+- stepwise
+
+### Genes
+
+Pour la tableau de gènes, traçons un premier plot pour chaque gène avec la distribution gaussienne de mort/vivant pour chaque gène. Ensuite nous pouvons prendre la moyenne de ce graphe.
+Et ensuite tracer toutes les moyennes correspondant à chaque gène dans un graphe commun et vérifier lesquels varient fortement de la médiane (la médiane des moyennes)
+
+Et ensuite LASSO pour réduire la dimension
