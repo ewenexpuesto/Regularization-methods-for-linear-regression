@@ -26,7 +26,7 @@
 \def\maketitle{
   \begin{flushleft}
     {\LARGE \textbf{Rapport Projet 1 - Données cliniques cancer du sein}}\\[4pt]
-    {\large Candice AUBERTIN - Ewen EXPUESTO (Binôme n°)}%
+    {\large Candice AUBERTIN - Ewen EXPUESTO (Binôme n°2)}%
   \end{flushleft}
   \begin{flushright}
     \large 24 Novembre 2025
@@ -47,11 +47,11 @@ La survie des patientes atteintes d'un cancer du sein dépend d'interactions ent
 Le jeu de données consiste en deux tableaux de données pour 1\,231 patientes :
 \begin{itemize}
   \item \textbf{Expression génique (\texttt{GeneX})} : matrice $1231 \times 5000$. Les lignes correspondent aux patients avec le nom de chaque ligne l'identifiant du patient comme `EW-A2FS-01A-11R-A17B`. Les colonnes correspondent aux gènes avec chaque nom de colonne un gène comme `CLEC3A`, qui sont les 5000 gènes les plus variables d'une personne à l'autre. Chaque case correspond à la valeur d'expression (un flottant) d'un certain gène (colonne) pour un certain patient (ligne) -> variables continues
-  \item \textbf{Profil clinique (\texttt{clinical\_data})} : matrice $1231 \times 24$. Les lignes correspondent aux noms des patients comme pour `GeneX`. Les colonnes sont les noms des données cliniques, comme `initial\_weight`, `sites\_of\_involvement` et `vital\_status`. Chaque case correspond à la valeur de la donnée clinique pour chaque patient, donc ce peut être un entier ou une chaîne de caractères.
+  \item \textbf{Profil clinique (\texttt{clinical\_data})} : matrice $1231 \times 24$. Les lignes correspondent aux noms des patients comme pour `GeneX`. Les colonnes sont les noms des données cliniques (genre, âge au moment du diagnostic, morphologie et `vital\_status`...). Chaque case correspond à la valeur de la donnée clinique pour chaque patient, donc ce peut être un entier ou une chaîne de caractères, un booléen, une liste ou un numeric.
 \end{itemize}
 
 \subsection{Variable cible : \texttt{vital\_status}}
-La variable binaire \texttt{vital\_status} encode l'issue «~Alive~» ou «~Dead~».
+La variable binaire \texttt{vital\_status} encode l'issue `Alive` ou `Dead`.
 
 \begin{figure}[H]
   \centering
@@ -63,17 +63,28 @@ La variable binaire \texttt{vital\_status} encode l'issue «~Alive~» ou «~Dead
 \section{Problématique}
 Nous cherchons à déterminer quelles caractéristiques cliniques et de profils d'expression génique améliore la prédiction du statut vital et quantifier cela. Ainsi, nos principales interrogations sont :
 \begin{itemize}
-  \item Quelles variables sont utilises pour prédire `vital\_status` ?
-  \item Quels modèles utiliser (kNN, k-means, régression logistique, lasso, group lasso, ridge, elastic net)
+  \item Quelles variables sont utiles pour prédire `vital\_status` ?
+  \item Quels modèles utiliser (kNN, k-means, régression logistique, lasso, group lasso, ridge, elastic net) ?
   \item Quelle fiabilité est associée à chaque modèle ?
   \item Quelle interprétabilité est associée à notre modèle prédictif ?
 \end{itemize}
 
-\secion{Notre étude}
-Pour la tableau de gènes, traçons un premier plot pour chaque gène avec la distribution gaussienne de mort/vivant pour chaque gène. Ensuite nous pouvons prendre la moyenne de ce graphe.
-Et ensuite tracer toutes les moyennes correspondant à chaque gène dans un graphe commun et vérifier lesquels varient fortement de la médiane (la médiane des moyennes)
+La variable cible est une variable binaire. Il y a deux plus deux tableaux de données qui sont de natures différentes. Le tableau de gènes est très large donc il y a potentiellement beaucoup de gènes superflus. C'est pour cela que nous utiliserons en premier lieu une régression LASSO logistique ou elastic net logistique pour éliminer les composantes qui n'aident pas à prédire. Dans le tableau clinique, il y a des variables qualitatives et quantitatives. Nous pouvons transformer les variables qualitatives en variables quantitatives (one-hot encoding) pour pouvoir les utiliser dans un unique modèle de classification comme la régression logistique RIDGE voire groupe RIDGE, et aussi kNN et k-means.
 
-Et ensuite LASSO pour réduire la dimension
+\section{Premiers pas de notre étude}
+
+Nous avons construit un premier modèle de régression logistique en utilisant uniquement les données cliniques les plus pertinentes : l'âge au diagnostic, le poids initial du patient, le stade de la tumeur et la morphologie du patient.
+
+La matrice de confusion présentée ci-dessous permet d'évaluer la capacité de ce modèle à prédire le \texttt{vital\_status}. Le modèle parvient globalement à identifier correctement la majorité des patientes.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{confusion_matrix.png}
+  \caption{Matrice de confusion du modèle simple}
+  \label{fig:matrice_de_confusion}
+\end{figure}
+
+Cette première étape met en évidence que les variables cliniques apportent une information utile, mais on va chercher à obtenir une meilleure performance prédictive.
 
 
 \end{document}
