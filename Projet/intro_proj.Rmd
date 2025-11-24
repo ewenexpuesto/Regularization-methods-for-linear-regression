@@ -33,11 +33,11 @@ colnames(GeneX)[1:10]
 rownames(GeneX)[1:10]
 ```
 
-`GeneX` est un tableau de 1231 lignes par 5000 colonnes :
+`GeneX` is a table with 1231 rows and 5000 columns:
 
-- Les lignes correspondent aux patients avec le nom de chaque ligne l'identifiant du patient comme `EW-A2FS-01A-11R-A17B`.
-- Les colonnes correspondent aux gènes avec chaque nom de colonne un gène comme `CLEC3A`, qui sont les 5000 gènes les plus variables d'une personne à l'autre.
-- Chaque case correspond à la valeur d'expression (un flottant) d'un certain gène (colonne) pour un certain patient (ligne) -> variables continues
+- The rows correspond to the patients with each row name being the patient identifier such as `EW-A2FS-01A-11R-A17B`.
+- The columns correspond to the genes with each column name being a gene such as `CLEC3A`, which are the 5000 most variable genes from one person to another.
+- Each cell corresponds to the expression value (a float) of a certain gene (column) for a certain patient (row) -> continuous variables
 
 ### Clinical data
 
@@ -48,11 +48,11 @@ head(clinical_data[, 1:5])
 colnames(clinical_data)
 ```
 
-`clinical_data` est un tableau de 1231 lignes par 24 colonnes :
+`clinical_data` is a table with 1231 rows and 24 columns:
 
-- Les lignes correspondent aux noms des patients comme pour `GeneX`.
-- Les colonnes sont les noms des données cliniques, comme `initial_weight`, `sites_of_involvement` et `vital_status`.
-- Chaque case correspond à la valeur de la donnée clinique pour chaque patient, donc ce peut être un entier ou une chaîne de caractères.
+- The rows correspond to the names of the patients, similar to `GeneX`.
+- The columns are the names of the clinical data, such as `initial_weight`, `sites_of_involvement`, and `vital_status`.
+- Each cell corresponds to the value of the clinical data for each patient, which can be either an integer or a character string.
 
 ### Outcome variable
 
@@ -73,54 +73,45 @@ barplot(table(y),
 
 ### Genes
 
+For the genes table, let's first plot for each gene the gaussian distribution of dead/alive for each gene. Then we can take the average of this graph.
+And then plot all the averages corresponding to each gene in a common graph and check which ones vary strongly from the median (the median of the averages).
+
 ### Clinical Data
 
-Voici chaque type correspondant à chaque donnée ainsi que les fréquences de chaque occurrence : 
+### Data cleaning
 
+First model and confusion matrix :
 ```{r}
-for (col in colnames(clinical_data)) {
-  cat("\n=== ", col, " ===\n", sep = "")
-  current_col <- clinical_data[[col]]
-  print(unique(current_col))
-
-  if (is.atomic(current_col) || is.factor(current_col)) {
-    print(table(as.vector(current_col), useNA = "ifany"))
-  } else {
-    cat("table() skipped: column is", class(current_col), "\n")
-  }
-}
-```
-
-
-Matrice de confusion :
-```{r}
-x <- clinical_data[, c("age_at_diagnosis",
-                       "initial_weight",
+x <- clinical_data[, c("initial_weight",
                        "classification_of_tumor",
                        "morphology")]
 y <- clinical_data$vital_status
 model_data <- data.frame(x, vital_status = factor(y))
-model_data <- na.omit(model_data) # retire les observations incomplètes
+model_data <- na.omit(model_data) # removes NA for now
 model_data$vital_status <- droplevels(model_data$vital_status)
+```
 
-# Modèle logistique
+First logistic model :
+```{r}
 model <- glm(vital_status ~ ., data = model_data, family = binomial)
+```
 
-# Prédiction
+Prediction : 
+```{r}
 pred <- predict(model, type = "response")
 positive_class <- levels(model_data$vital_status)[2]
 pred_class <- ifelse(pred > 0.5, positive_class, levels(model_data$vital_status)[1])
 pred_class <- factor(pred_class, levels = levels(model_data$vital_status))
+```
 
-# Matrice de confusion sans caret
+Confusion matrix :
+```{r}
 conf_mat <- table(Predicted = pred_class, Observed = model_data$vital_status)
 conf_mat
+```
 
-# Indicateurs simples
-accuracy <- sum(diag(conf_mat)) / sum(conf_mat)
-cat(sprintf("\nAccuracy: %.3f\n", accuracy))
-
-# Visualisation de la matrice de confusion
+Visualization of the confusion matrix
+```{r}
 conf_mat_matrix <- as.matrix(conf_mat)
 image(t(conf_mat_matrix[nrow(conf_mat_matrix):1, ]),
   axes = FALSE,
@@ -138,21 +129,34 @@ text(rep(seq(0, 1, length.out = ncol(conf_mat_matrix)), each = nrow(conf_mat_mat
 
 ## Data analysis
 
-But : prédire la donnée clinique vie/mort.
-Donc on veut utiliser des modèles de classification : 
-- KNN avec $k=2$
-- kmeans avec $k=2$
-- régression logistique
-- groupe-lasso ?
-- elastic net ?
-- lasso, ridge ?
-- stepwise
-
 ### Genes
 
-Pour la tableau de gènes, traçons un premier plot pour chaque gène avec la distribution gaussienne de mort/vivant pour chaque gène. Ensuite nous pouvons prendre la moyenne de ce graphe.
-Et ensuite tracer toutes les moyennes correspondant à chaque gène dans un graphe commun et vérifier lesquels varient fortement de la médiane (la médiane des moyennes)
-
-Et ensuite LASSO pour réduire la dimension
-
 ### Clinical data
+
+#### Data cleaning
+
+Here is each type corresponding to each data point as well as the frequencies of each occurrence.
+
+After analysis we can remove redundant data like `age_at_diagnosis`, `days_to_birth` which are like the age in `age_at_index` and `bcr_patient_barcode` which is like the index of the line, and also `disease_type` and `primary_site` because they contain only one one observation which is the same fall all patients.
+
+```{r}
+redundant_cols <- c("age_at_diagnosis", "days_to_birth", "bcr_patient_barcode",
+                    "disease_type", "primary_site")
+clinical_data <- clinical_data[, setdiff(names(clinical_data), redundant_cols)]
+cat("Removed columns:", paste(redundant_cols, collapse = ", "), "\n")
+```
+
+```{r, fig.width=6, fig.height=4, fig.show="asis"}
+for (col in names(clinical_data)) {
+  tbl <- table(as.character(clinical_data[[col]]), useNA = "ifany")
+  
+  plot.new() # start a fresh plot for each iteration
+  
+  barplot(tbl,
+          main = paste("Distribution of", col),
+          ylab = "Frequency",
+          col = "steelblue",
+          las = 2,
+          cex.names = 0.7)
+}
+```

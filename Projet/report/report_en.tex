@@ -1,0 +1,86 @@
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[a4paper, margin=1.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\arabic{section}}
+
+\definecolor{backgroundColour}{rgb}{0.1, 0.1, 0.1}
+\definecolor{bordeaux}{rgb}{0.5, 0, 0}
+\definecolor{blueVar}{rgb}{0.0, 0.0, 1.0}
+\definecolor{greenKeyword}{rgb}{0.0, 0.5, 0.0}
+
+\begin{document}
+
+\makeatletter
+\def\maketitle{
+  \begin{flushleft}
+    {\LARGE \textbf{Project Report 1 - Breast Cancer Clinical Data}}\\[4pt]
+    {\large Candice AUBERTIN - Ewen EXPUESTO (Team no. 17)}%
+  \end{flushleft}
+  \begin{flushright}
+    \large 24 November 2025
+  \end{flushright}
+  \vspace{1cm}
+}
+\makeatother
+
+\maketitle
+
+\vspace{-2cm}
+
+\section{Introduction}
+The survival of breast cancer patients depends on interactions between their clinical data and genomic features. In this report we analyze these data in order to understand which models should be used to predict the variable (\texttt{vital\_status}).
+
+\section{Dataset presentation}
+\subsection{Data}
+The dataset consists of two tables for 1,231 patients:
+\begin{itemize}
+  \item \textbf{Gene expression (\texttt{GeneX})}: matrix $1231 \times 5000$. Rows correspond to patients, each row name identifying a patient such as `EW-A2FS-01A-11R-A17B`. Columns correspond to genes, each column named after a gene such as `CLEC3A`. These are the 5,000 genes showing the strongest variability across patients. Every cell stores the expression value (a floating number) of a specific gene (column) for a specific patient (row), hence continuous variables.
+  \item \textbf{Clinical profile (\texttt{clinical\_data})}: matrix $1231 \times 24$. Rows correspond to the same patients as in `GeneX`. Columns are clinical variables (gender, age at diagnosis, morphology, \texttt{vital\_status}, etc.). Every cell contains the clinical value for each patient, which can be an integer, character string, boolean, list, or numeric entry.
+\end{itemize}
+
+\subsection{Target variable: \texttt{vital\_status}}
+The binary variable \texttt{vital\_status} encodes the outcome `Alive` or `Dead`.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{report/occurrence_y.png}
+  \caption{Distribution of the \texttt{vital\_status} variable}
+  \label{fig:occurrence_y}
+\end{figure}
+
+\section{Problem statement}
+We aim to determine which clinical characteristics and gene-expression profiles improve the prediction of the vital status and to quantify this improvement. Our main questions are:
+\begin{itemize}
+  \item Which variables are useful for predicting `vital\_status`?
+  \item Which models should we employ (kNN, k-means, logistic regression, lasso, group lasso, ridge, elastic net)?
+  \item What reliability is associated with each model?
+  \item How interpretable is our predictive model?
+\end{itemize}
+
+The target variable is binary. There are two tables with distinct natures. The gene table is very wide, so it potentially includes many superfluous genes. Therefore we will first use logistic LASSO, logistic elastic net, or forward/backward/stepwise logistic regression to remove predictors that do not help prediction. In the clinical table we have qualitative and quantitative variables. We can transform the qualitative variables into quantitative ones (one-hot encoding) so they can be used within a single classification model such as logistic ridge regression (possibly grouped ridge), as well as kNN and k-means.
+
+\section{First steps of our study}
+We built an initial logistic regression model using only the most relevant clinical variables: age at diagnosis, initial patient weight, tumor stage, and morphology.
+
+The confusion matrix below evaluates the ability of this model to predict \texttt{vital\_status}. Overall, the model correctly identifies most patients.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{report/confusion_matrix.png}
+  \caption{Confusion matrix of the simple model}
+  \label{fig:matrice_de_confusion}
+\end{figure}
+
+This first step highlights that clinical variables provide useful information, but we will seek to obtain better predictive performance.
+
+\end{document}

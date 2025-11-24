@@ -26,7 +26,7 @@
 \def\maketitle{
   \begin{flushleft}
     {\LARGE \textbf{Rapport Projet 1 - Données cliniques cancer du sein}}\\[4pt]
-    {\large Candice AUBERTIN - Ewen EXPUESTO (Binôme n°2)}%
+    {\large Candice AUBERTIN - Ewen EXPUESTO (Binôme n°17)}%
   \end{flushleft}
   \begin{flushright}
     \large 24 Novembre 2025
@@ -55,7 +55,7 @@ La variable binaire \texttt{vital\_status} encode l'issue `Alive` ou `Dead`.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.6\textwidth]{occurrence y.png}
+  \includegraphics[width=0.6\textwidth]{report/occurrence_y.png}
   \caption{Distribution de la variable \texttt{vital\_status}}
   \label{fig:occurrence_y}
 \end{figure}
@@ -69,7 +69,7 @@ Nous cherchons à déterminer quelles caractéristiques cliniques et de profils 
   \item Quelle interprétabilité est associée à notre modèle prédictif ?
 \end{itemize}
 
-La variable cible est une variable binaire. Il y a deux plus deux tableaux de données qui sont de natures différentes. Le tableau de gènes est très large donc il y a potentiellement beaucoup de gènes superflus. C'est pour cela que nous utiliserons en premier lieu une régression LASSO logistique ou elastic net logistique pour éliminer les composantes qui n'aident pas à prédire. Dans le tableau clinique, il y a des variables qualitatives et quantitatives. Nous pouvons transformer les variables qualitatives en variables quantitatives (one-hot encoding) pour pouvoir les utiliser dans un unique modèle de classification comme la régression logistique RIDGE voire groupe RIDGE, et aussi kNN et k-means.
+La variable cible est une variable binaire. Il y a deux plus deux tableaux de données qui sont de natures différentes. Le tableau de gènes est très large donc il y a potentiellement beaucoup de gènes superflus. C'est pour cela que nous utiliserons en premier lieu une régression LASSO logistique ou elastic net logistique ou forward/backward/stepwise logistic pour éliminer les composantes qui n'aident pas à prédire. Dans le tableau clinique, il y a des variables qualitatives et quantitatives. Nous pouvons transformer les variables qualitatives en variables quantitatives (one-hot encoding) pour pouvoir les utiliser dans un unique modèle de classification comme la régression logistique RIDGE voire groupe RIDGE, et aussi kNN et k-means.
 
 \section{Premiers pas de notre étude}
 
@@ -79,12 +79,11 @@ La matrice de confusion présentée ci-dessous permet d'évaluer la capacité de
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.6\textwidth]{confusion_matrix.png}
+  \includegraphics[width=0.6\textwidth]{report/confusion_matrix.png}
   \caption{Matrice de confusion du modèle simple}
   \label{fig:matrice_de_confusion}
 \end{figure}
 
 Cette première étape met en évidence que les variables cliniques apportent une information utile, mais on va chercher à obtenir une meilleure performance prédictive.
-
 
 \end{document}
