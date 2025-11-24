@@ -44,7 +44,7 @@ rownames(GeneX)[1:10]
 ```{r}
 load("mrr_bio.Rdata")
 dim(clinical_data)
-head(clinical_data[, 0:5])
+head(clinical_data[, 1:5])
 colnames(clinical_data)
 ```
 
@@ -54,13 +54,6 @@ colnames(clinical_data)
 - Les colonnes sont les noms des données cliniques, comme `initial_weight`, `sites_of_involvement` et `vital_status`.
 - Chaque case correspond à la valeur de la donnée clinique pour chaque patient, donc ce peut être un entier ou une chaîne de caractères.
 
-Voici chaque type correspondant à chaque donnée : 
-
-```{r}
-
-```
-
-
 ### Outcome variable
 
 The outcome variable is the vital status of the patient (dead or alive) :
@@ -68,24 +61,79 @@ The outcome variable is the vital status of the patient (dead or alive) :
 y <- clinical_data$vital_status
 table(y)
 
-# Visualize the outcome variable
-barplot(table(y), 
-    main = "Distribution of Vital Status",
-    xlab = "Vital Status",
-    ylab = "Frequency",
-    col = c("lightblue", "salmon"))
+barplot(table(y),
+        main = "Distribution of Vital Status",
+        xlab = "Vital Status",
+        ylab = "Frequency",
+        col = c("lightblue", "salmon"))
 ```
 
 
-## Exploratory data analysis: example
+## Exploratory data analysis
+
+### Genes
+
+### Clinical Data
+
+Voici chaque type correspondant à chaque donnée ainsi que les fréquences de chaque occurrence : 
 
 ```{r}
-# summary statistics of first 10 genes
-apply(GeneX[,1:10],2, summary)
+for (col in colnames(clinical_data)) {
+  cat("\n=== ", col, " ===\n", sep = "")
+  current_col <- clinical_data[[col]]
+  print(unique(current_col))
 
-# clinical variables: gender
-unique(clinical_data$gender) # unique values
-table(clinical_data$gender) # frequency
+  if (is.atomic(current_col) || is.factor(current_col)) {
+    print(table(as.vector(current_col), useNA = "ifany"))
+  } else {
+    cat("table() skipped: column is", class(current_col), "\n")
+  }
+}
+```
+
+
+Matrice de confusion :
+```{r}
+x <- clinical_data[, c("age_at_diagnosis",
+                       "initial_weight",
+                       "classification_of_tumor",
+                       "morphology")]
+y <- clinical_data$vital_status
+model_data <- data.frame(x, vital_status = factor(y))
+model_data <- na.omit(model_data) # retire les observations incomplètes
+model_data$vital_status <- droplevels(model_data$vital_status)
+
+# Modèle logistique
+model <- glm(vital_status ~ ., data = model_data, family = binomial)
+
+# Prédiction
+pred <- predict(model, type = "response")
+positive_class <- levels(model_data$vital_status)[2]
+pred_class <- ifelse(pred > 0.5, positive_class, levels(model_data$vital_status)[1])
+pred_class <- factor(pred_class, levels = levels(model_data$vital_status))
+
+# Matrice de confusion sans caret
+conf_mat <- table(Predicted = pred_class, Observed = model_data$vital_status)
+conf_mat
+
+# Indicateurs simples
+accuracy <- sum(diag(conf_mat)) / sum(conf_mat)
+cat(sprintf("\nAccuracy: %.3f\n", accuracy))
+
+# Visualisation de la matrice de confusion
+conf_mat_matrix <- as.matrix(conf_mat)
+image(t(conf_mat_matrix[nrow(conf_mat_matrix):1, ]),
+  axes = FALSE,
+  col = colorRampPalette(c("#f7fbff", "#6baed6", "#08306b"))(64),
+  xlab = "Observed",
+  ylab = "Predicted",
+  main = "Confusion Matrix")
+axis(1, at = seq(0, 1, length.out = ncol(conf_mat_matrix)), labels = colnames(conf_mat_matrix))
+axis(2, at = seq(0, 1, length.out = nrow(conf_mat_matrix)), labels = rev(rownames(conf_mat_matrix)))
+text(rep(seq(0, 1, length.out = ncol(conf_mat_matrix)), each = nrow(conf_mat_matrix)),
+     rep(seq(0, 1, length.out = nrow(conf_mat_matrix)), times = ncol(conf_mat_matrix)),
+     labels = as.vector(conf_mat_matrix[rev(seq_len(nrow(conf_mat_matrix))), ]),
+     col = "black", font = 2)
 ```
 
 ## Data analysis
@@ -106,3 +154,5 @@ Pour la tableau de gènes, traçons un premier plot pour chaque gène avec la di
 Et ensuite tracer toutes les moyennes correspondant à chaque gène dans un graphe commun et vérifier lesquels varient fortement de la médiane (la médiane des moyennes)
 
 Et ensuite LASSO pour réduire la dimension
+
+### Clinical data
