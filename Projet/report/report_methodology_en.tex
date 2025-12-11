@@ -1,0 +1,104 @@
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[a4paper, margin=1.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\arabic{section}}
+
+\definecolor{backgroundColour}{rgb}{0.1, 0.1, 0.1}
+\definecolor{bordeaux}{rgb}{0.5, 0, 0}
+\definecolor{blueVar}{rgb}{0.0, 0.0, 1.0}
+\definecolor{greenKeyword}{rgb}{0.0, 0.5, 0.0}
+
+\begin{document}
+
+\makeatletter
+\def\maketitle{
+  \begin{flushleft}
+    {\LARGE \textbf{Project Report 2 methodology - Breast Cancer Clinical Data}}\\[4pt]
+    {\large Candice AUBERTIN - Ewen EXPUESTO (Team no. 17)}%
+  \end{flushleft}
+  \begin{flushright}
+    \large 08 December 2025
+  \end{flushright}
+  \vspace{1cm}
+}
+\makeatother
+
+\maketitle
+
+\vspace{-2cm}
+
+\section{Introduction}
+The survival of breast cancer patients depends on interactions between their clinical data and genomic features. In this report, we propose a methodology for building a model to predict the variable (\texttt{vital\_status}). The report is divided into three sections: one for each dataset and one that combines them, because each dataset has a different nature and therefore requires a distinct approach.
+
+
+\section{Genes data}
+As a first step, we built, for each gene, a graph for both alive and dead patients to visualize the distribution of expression values. This allowed us to identify genes whose expression distributions differ significantly between the two groups by computing the mean for each group and then the relative difference between the means. Genes with high divergence values are likely to be more informative for predicting \texttt{vital\_status}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.5\textwidth]{report/genes1.png}
+\end{figure}
+
+Then plotting the relative mean differences for all genes shows the genes with the most significant differences in expression between alive and dead patients.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.5\textwidth]{report/genes2.png}
+\end{figure}
+
+The gene table is very wide, so it potentially includes many superfluous genes. Therefore we will use logistic LASSO with cross validation.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.4\textwidth]{report/genes3.png}
+  \hfill
+  \includegraphics[width=0.4\textwidth]{report/genes4.png}
+\end{figure}
+
+
+
+\section{Clinical data}
+For each clinical variable we plot its distribution to assess whether it is potentially useful.
+The value "NA" is counted as its own category for categorical variables.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.4\textwidth]{report/clinicaldata1.png}
+  \hfill
+  \includegraphics[width=0.4\textwidth]{report/clinicaldata2.png}
+\end{figure}
+
+For instance, we decided to remove the variable `days\_to\_birth` and keep only `age\_at\_index` among the explanatory variables because of redundancy.
+
+Then we encoded categorical variables using label encoding for non-numeric variables.
+
+For instance :
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.4\textwidth]{report/clinicaldata3.png}
+\end{figure}
+
+
+We then trained a RIDGE regression model using cross-validation in order to keep all variables and inspect their relative importance.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.5\textwidth]{report/clinicaldata4.png}
+\end{figure}
+
+\section{Both}
+
+We still need to build a model that combines both datasets, especially for patients for whom we predict different outcomes based on each dataset alone.
+
+
+\end{document}

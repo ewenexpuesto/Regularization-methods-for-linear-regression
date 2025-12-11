@@ -1,0 +1,219 @@
+---
+title: "Classification of Cancer outcome using Genetic and Clinical data"
+author: "Ewen Expuesto and Candice Aubertin"
+output: pdf_document
+header-includes:
+  - \usepackage{titlesec}
+  - \usepackage{etoolbox}
+  - \titleformat{\section}{\normalfont\fontsize{33}{35}\selectfont\bfseries}{\thesection}{1em}{}
+  - \titleformat{\subsection}{\normalfont\fontsize{30}{32}\selectfont\bfseries}{\thesubsection}{1em}{}
+  - \titleformat{\subsubsection}{\normalfont\fontsize{22}{24}\selectfont\bfseries}{\thesubsubsection}{1em}{}
+  - |
+      \makeatletter
+      \pretocmd{\section}{\ifnum\value{section}>0\clearpage\fi}{}{}
+      \makeatother
+---
+
+# Exploratory Data Analysis
+
+## Introduction
+
+This project investigates the effect of genetic and clinical variables on the survival outcome of breast cancer patients. The data contains records of more than 1000 breast cancer patients from several research institutions. Clinical data contains patient-related and tumor-related information. Additionally mRNA gene expression data is available for each patient. The gene expression data has been processed to include only the top 5000 most variable genes on the transformed scale (log2(counts + 1)).
+
+We consider that the main outcome variable of interest is **vital_status**, which is defined in clinical data.
+
+### Load data
+
+```{r}
+load("mrr_bio.Rdata")
+```
+
+### Genes data
+
+```{r}
+dim(GeneX)
+str(GeneX)
+colnames(GeneX)[1:5]
+rownames(GeneX)[1:5]
+```
+
+`GeneX` is a table with 1231 rows and 5000 columns:
+
+- The rows correspond to the patients with each row name being the patient identifier such as `EW-A2FS-01A-11R-A17B`.
+- The columns correspond to the genes with each column name being a gene such as `CLEC3A`, which are the 5000 most variable genes from one person to another.
+- Each cell corresponds to the expression value (a float) of a certain gene (column) for a certain patient (row) -> continuous variables
+
+### Clinical data
+
+```{r}
+load("mrr_bio.Rdata")
+dim(clinical_data)
+head(clinical_data[, 1:5])
+colnames(clinical_data)
+```
+
+`clinical_data` is a table with 1231 rows and 24 columns:
+
+- The rows correspond to the names of the patients, similar to `GeneX`.
+- The columns are the names of the clinical data, such as `initial_weight`, `sites_of_involvement`, and `vital_status`.
+- Each cell corresponds to the value of the clinical data for each patient, which can be either an integer or a character string.
+
+### Outcome variable
+
+The outcome variable is the vital status of the patient (dead or alive).
+```{r}
+y <- clinical_data$vital_status
+table(y)
+
+barplot(table(y),
+        main = "Distribution of Vital Status",
+        xlab = "Vital Status",
+        ylab = "Amount",
+        col = c("blue", "red"))
+```
+
+
+## Exploratory data analysis
+
+### Genes
+
+For the genes table, let's first plot for each gene the gaussian distribution of proportion of dead minus proportion of alive and then take the average of this graph.
+
+```{r}
+# Calculate mean expression for each gene by vital status
+for (col in colnames(GeneX)[1:5]) {  # First 5 genes for demonstration
+  gene_data <- GeneX[, col]
+  status <- clinical_data$vital_status
+  
+  # Split data by status
+  alive_expr <- gene_data[status == "Alive"]
+  dead_expr <- gene_data[status == "Dead"]
+  
+  # Calculate means
+  mean_alive <- mean(alive_expr, na.rm = TRUE)
+  mean_dead <- mean(dead_expr, na.rm = TRUE)
+  
+  # Create density plot
+  plot(density(alive_expr, na.rm = TRUE), 
+       col = "blue", 
+       lwd = 2,
+       main = paste("Gene:", col),
+       xlab = "Expression Level",
+       ylab = "Density")
+  lines(density(dead_expr, na.rm = TRUE), 
+        col = "red", 
+        lwd = 2)
+  
+  # Add mean lines
+  abline(v = mean_alive, col = "blue", lty = 2, lwd = 2)
+  abline(v = mean_dead, col = "red", lty = 2, lwd = 2)
+  
+  # Add legend
+  legend("topright", 
+         legend = c(paste("Alive (mean =", round(mean_alive, 3), ")"),
+                   paste("Dead (mean =", round(mean_dead, 3), ")")),
+         col = c("blue", "red"), 
+         lty = 1, 
+         lwd = 2)
+}
+```
+
+Thus we can display the most important genes by calculating the relative mean difference between the two groups (alive and dead) for each gene and then sorting them.
+
+```{r}
+gene_diff <- data.frame(
+  Gene = colnames(GeneX),
+  MeanDiff = numeric(ncol(GeneX))
+)
+
+for (i in seq_along(colnames(GeneX))) {
+  col <- colnames(GeneX)[i]
+  gene_data <- GeneX[, col]
+  status <- factor(clinical_data$vital_status)
+  
+  plot_data <- data.frame(Expression = gene_data, Status = status)
+  means <- aggregate(Expression ~ Status, data = plot_data, mean)
+  
+  # Calculate relative mean difference
+  mean_alive <- means$Expression[means$Status == "Alive"]
+  mean_dead <- means$Expression[means$Status == "Dead"]
+  
+  # Relative difference: (Dead - Alive) / Alive
+  # Handle division by zero
+  if (mean_alive != 0) {
+    gene_diff$MeanDiff[i] <- abs((mean_dead - mean_alive) / mean_alive)
+  } else {
+    gene_diff$MeanDiff[i] <- NA
+  }
+}
+
+# Sort by relative mean difference
+gene_diff <- gene_diff[order(gene_diff$MeanDiff, decreasing = TRUE), ]
+
+# Display top 50 genes
+top_50 <- head(gene_diff, 50)
+print(top_50)
+
+# Optional: visualize the distribution
+barplot(top_50$MeanDiff[1:50],
+        names.arg = top_50$Gene[1:50],
+        las = 2,
+        cex.names = 0.6,
+        main = "Top 50 Genes by Relative Mean Difference",
+        ylab = "Relative Mean Difference",
+        col = "steelblue")
+```
+
+
+### Clinical Data
+
+First modeling attempt with three variables from clinical data : `initial_weight`, `classification_of_tumor`, `morphology` to predict `vital_status`.
+```{r}
+x <- clinical_data[, c("initial_weight",
+                       "classification_of_tumor",
+                       "morphology")]
+y <- clinical_data$vital_status
+model_data <- data.frame(x, vital_status = factor(y))
+model_data <- na.omit(model_data) # removes NA for now
+model_data$vital_status <- droplevels(model_data$vital_status)
+```
+
+Model fitting:
+```{r}
+model <- glm(vital_status ~ ., data = model_data, family = binomial)
+```
+
+Prediction:
+```{r}
+pred <- predict(model, type = "response")
+positive_class <- levels(model_data$vital_status)[2]
+pred_class <- ifelse(pred > 0.5, positive_class, levels(model_data$vital_status)[1])
+pred_class <- factor(pred_class, levels = levels(model_data$vital_status))
+```
+
+Confusion matrix:
+```{r}
+conf_mat <- table(Predicted = pred_class, Observed = model_data$vital_status)
+conf_mat
+```
+
+Visualization of the confusion matrix.
+```{r}
+conf_mat_matrix <- as.matrix(conf_mat)
+
+image(t(conf_mat_matrix[nrow(conf_mat_matrix):1, ]),
+  axes = FALSE,
+  col = colorRampPalette(c("#f7fbff", "#6baed6", "#08306b"))(64),
+  xlab = "Observed",
+  ylab = "Predicted",
+  main = "Confusion Matrix")
+
+axis(1, at = seq(0, 1, length.out = ncol(conf_mat_matrix)), labels = colnames(conf_mat_matrix))
+
+axis(2, at = seq(0, 1, length.out = nrow(conf_mat_matrix)), labels = rev(rownames(conf_mat_matrix)))
+
+text(rep(seq(0, 1, length.out = ncol(conf_mat_matrix)), each = nrow(conf_mat_matrix)),
+     rep(seq(0, 1, length.out = nrow(conf_mat_matrix)), times = ncol(conf_mat_matrix)),
+     labels = as.vector(conf_mat_matrix[rev(seq_len(nrow(conf_mat_matrix))), ]),
+     col = "black", font = 2)
+```

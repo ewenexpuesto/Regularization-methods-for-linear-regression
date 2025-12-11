@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
-Rscript -e "rmarkdown::render('main.Rmd')"
+Rscript -e "rmarkdown::render('exploratory_data_analysis.Rmd')"
+Rscript -e "rmarkdown::render('data_analysis.Rmd')"
