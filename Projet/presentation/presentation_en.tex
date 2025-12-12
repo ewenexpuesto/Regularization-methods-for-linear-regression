@@ -1,0 +1,218 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Madrid}
+\usecolortheme{dove}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+% Custom palette
+\definecolor{brandLight}{HTML}{F7FBFF}
+\definecolor{brandMid}{HTML}{6BAED6}
+\definecolor{brandDark}{HTML}{08306B}
+
+% Apply palette to key beamer elements
+\setbeamercolor{structure}{fg=brandDark}
+\setbeamercolor{frametitle}{bg=brandLight, fg=brandDark}
+\setbeamercolor{title}{fg=brandDark}
+\setbeamercolor{block title}{bg=brandMid!30, fg=brandDark}
+\setbeamercolor{block body}{bg=brandLight}
+\setbeamercolor{itemize item}{fg=brandMid}
+\setbeamercolor{itemize subitem}{fg=brandMid}
+\graphicspath{{./}}
+
+\title{Breast Cancer Genes and Clinical Data}
+\author{Candice Aubertin \and Ewen Expuesto (Team 17)}
+\date{15 December 2025}
+
+% Show frame numbers as "current / total" in the bottom-right footline
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{%
+  \leavevmode\hbox{%
+    \begin{beamercolorbox}[wd=\paperwidth,ht=2.5ex,dp=1ex,right]{date in head/foot}%
+      \usebeamerfont{date in head/foot}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}%
+    \end{beamercolorbox}%
+  }%
+}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Datasets Introduction}
+  \begin{itemize}
+    \item Two tables available: gene expression (GeneX) and clinical data (clinical\_data).
+    \item Same 1{,}231 patients represented in both tables.
+    \item Target outcome: \texttt{vital\_status}, a binary status (Alive / Dead).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Genes Data}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \begin{itemize}
+        \item GeneX: 1,231 rows (patients) and 5,000 columns (genes).
+        \item Rows: patient IDs (e.g., EW-A2FS-01A-11R-A17B).
+        \item Columns: gene names (e.g., CLEC3A), top 5,000 most variable genes.
+        \item Cells: continuous expression values per patient-gene pair.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.45\textwidth}
+      \centering
+      \includegraphics[width=0.95\linewidth]{presentation/1.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Genes Exploration}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \begin{itemize}
+        \item Plotted, for each gene, the density of (Dead vs. Alive) and averaged these curves.
+        \item Computed relative differences of mean expression between Alive and Dead groups.
+      \end{itemize}
+    \end{column}
+      \begin{column}{0.45\textwidth}
+          \centering
+          \includegraphics[width=0.75\linewidth]{presentation/3.png}
+        \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \begin{itemize}
+        \item Ranking genes by relative mean difference highlighted the most discriminative markers.
+      \end{itemize}
+    \end{column}
+      \begin{column}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.8\linewidth]{presentation/4.png}
+      \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Clinical Data Exploration}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \begin{itemize}
+        \item clinical\_data: 1,231 rows and 24 columns.
+        \item Rows: patients (aligned with GeneX).
+        \item Columns: clinical variables (e.g., initial\_weight, sites\_of\_involvement, vital\_status).
+        \item Cells: clinical values per patient (integer, float, character or NA).
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.45\textwidth}
+      \centering
+      \includegraphics[width=0.75\linewidth]{presentation/2.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Modeling Plan}
+  \small
+  \begin{itemize}
+    \item \textbf{Genes (GeneX):} LASSO logistic regression (L1) to handle p $\gg$ n and perform feature selection/dimensionality reduction.
+    \[\text{LASSO: } \min_{\beta} \sum_{i=1}^n \log\bigl(1+e^{-y_i x_i^T \beta}\bigr) + \lambda \|\beta\|_1\]
+    \item \textbf{Clinical data:} RIDGE logistic regression (L2) to shrink coefficients without enforcing sparsity.
+    \[\text{RIDGE: } \min_{\beta} \sum_{i=1}^n \log\bigl(1+e^{-y_i x_i^T \beta}\bigr) + \lambda \|\beta\|_2^2\]
+    \item \textbf{Both tables together:} Elastic Net (L1+L2) to keep some selection while stabilizing correlated predictors.
+    \[\text{Elastic Net: } \min_{\beta} \sum_{i=1}^n \log\bigl(1+e^{-y_i x_i^T \beta}\bigr) + \lambda \bigl( \alpha \|\beta\|_1 + \tfrac{1-\alpha}{2} \|\beta\|_2^2 \bigr)\]
+  \end{itemize}
+  \normalsize
+\end{frame}
+
+
+\begin{frame}{LASSO Genes}
+  \begin{columns}[c]
+    \begin{column}{0.48\textwidth}
+      \centering
+      \includegraphics[width=0.95\linewidth]{presentation/5.png}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \centering
+      \includegraphics[width=0.95\linewidth]{presentation/6.png}\\[0.4em]
+      {\small Most important genes variables based on their $\lambda$ value using $\lambda_{\min}$.}\\[0.4em]
+      \includegraphics[width=0.90\linewidth]{presentation/17.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{LASSO Genes}
+  \centering
+  \includegraphics[width=0.7\linewidth]{presentation/7.png}\\[0.5em]
+\end{frame}
+\begin{frame}{RIDGE Clinical Data}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \begin{itemize}
+        \item We first performed data cleaning and inspection.
+        \item After analysis we removed redundant variables: \texttt{age\_at\_diagnosis} and \texttt{days\_to\_birth} (both reflect age information captured by \texttt{age\_at\_index}), and \texttt{bcr\_patient\_barcode} (acts as the row index).
+        \item We also removed \texttt{disease\_type} and \texttt{primary\_site} since they contained a single identical observation for all patients.
+        \item We encoded categorical variables but kept NA values as explicit missing values for modeling.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.4\textwidth}
+      \centering
+      \includegraphics[width=0.95\linewidth]{presentation/8.png}\\[0.6em]
+      \vspace*{1.6cm}
+      \includegraphics[width=0.95\linewidth]{presentation/9.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{RIDGE Clinical Data}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \centering
+      \vspace*{1.0cm}
+      \includegraphics[width=0.95\linewidth]{presentation/10.png}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \centering
+      \includegraphics[width=0.95\linewidth]{presentation/11.png}\\[0.4em]
+      {\small Most important clinical variables based on their $\lambda$ value using $\lambda_{\min}$.}\\[0.4em]
+      \includegraphics[width=0.80\linewidth]{presentation/16.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{RIDGE Clinical Data}
+  \centering
+  \includegraphics[width=0.70\linewidth]{presentation/12.png}\\[0.5em]
+\end{frame}
+\begin{frame}{Elastic Net Genes + Clinical Data}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \begin{itemize}
+        \item We combined genes and clinical datasets by taking the intersection on patient IDs to ensure aligned rows.
+        \item Elastic Net mixes L1 and L2 penalties; we selected the mixing parameter $\alpha$ by cross-validation choosing among: 0, 0.25, 0.5, 0.75 and 1.
+        \item This lets us balance sparsity (LASSO) and stability (RIDGE) when predictors are correlated.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.4\textwidth}
+      \centering
+      \includegraphics[width=0.80\linewidth]{presentation/13.png}\\[0.6em]
+      \includegraphics[width=0.80\linewidth]{presentation/14.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Elastic Net Genes + Clinical Data}
+  \centering
+  \includegraphics[width=0.70\linewidth]{presentation/15.png}\\[0.5em]
+\end{frame}
+
+\begin{frame}{Conclusion}
+  \begin{itemize}
+    \item Using Elastic Net (tuning $\alpha$ by CV) allowed balancing sparsity and stability across predictors.
+    \item We tested $\alpha = 0,\;0.25,\;0.5,\;0.75,\;\text{and}\;1$.
+    \item The best performing $\alpha$ was $0.25$, indicating clinical predictors contributed more in the combined model.
+    \item Combined data improved predictive performance compared to using genes or clinical data alone.
+  \end{itemize}
+\end{frame}
+
+\end{document}
